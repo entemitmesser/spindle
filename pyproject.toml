@@ -19,6 +19,7 @@ dependencies = [
   "pyudev>=0.24; sys_platform == 'linux'",
   "structlog>=24.4",
   "typer>=0.13",
+  "rapidfuzz>=3.10",
 ]
 
 [project.scripts]
@@ -52,11 +53,16 @@ select = ["E", "F", "I", "N", "UP", "B", "ASYNC", "S", "C4", "RET", "SIM"]
 
 [tool.mypy]
 python_version = "3.12"
+platform = "linux"  # the app only ever runs in the Linux container; dev machines vary
 strict = true
 exclude = ["^spindle/alembic/versions/"]
 
 [[tool.mypy.overrides]]
 module = "pyudev.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "discid.*"
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

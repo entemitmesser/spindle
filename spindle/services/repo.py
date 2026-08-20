@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
+from spindle.models.disc import Disc
 from spindle.models.drive import Drive
 from spindle.models.job import Job, JobStatus
 from spindle.models.task import Task, TaskStatus
@@ -14,6 +15,22 @@ _RUNNABLE_TASK_STATUSES = (TaskStatus.PENDING, TaskStatus.FAILED)
 
 async def get_drive_by_path(session: AsyncSession, device_path: str) -> Drive | None:
     result = await session.execute(select(Drive).where(col(Drive.device_path) == device_path))
+    return result.scalar_one_or_none()
+
+
+async def get_latest_job_by_fingerprint(
+    session: AsyncSession, fingerprint: str, *, exclude_disc_id: int | None = None
+) -> Job | None:
+    """The most recent job for a disc with this fingerprint, for re-insert reuse."""
+    stmt = (
+        select(Job)
+        .join(Disc, col(Job.disc_id) == col(Disc.id))
+        .where(col(Disc.fingerprint) == fingerprint)
+        .order_by(col(Job.created_at).desc())
+    )
+    if exclude_disc_id is not None:
+        stmt = stmt.where(col(Disc.id) != exclude_disc_id)
+    result = await session.execute(stmt.limit(1))
     return result.scalar_one_or_none()
 
 
