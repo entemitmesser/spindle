@@ -1,0 +1,19 @@
+services:
+  spindle:
+    build: .
+    image: spindle:latest
+    ports:
+      - "8478:8478"
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      SPINDLE_LOG_LEVEL: INFO
+    volumes:
+      - ./data:/data
+      - ./work:/work
+      - ./library:/library
+    devices:
+      - "/dev/sr0:/dev/sr0"
+    group_add:
+      - cdrom
+    restart: unless-stopped

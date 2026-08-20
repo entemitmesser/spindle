@@ -1,0 +1,80 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* light */
+  --background: oklch(0.99 0 0);
+  --foreground: oklch(0.18 0.01 260);
+  --card: oklch(1 0 0);
+  --muted: oklch(0.96 0.005 260);
+  --muted-foreground: oklch(0.52 0.015 260);
+  --border: oklch(0.91 0.005 260);
+  --primary: oklch(0.55 0.16 265); /* indigo-violet, the one accent */
+  --primary-foreground: oklch(0.99 0 0);
+  --radius: 0.75rem;
+
+  --status-idle: oklch(0.55 0.01 265);
+  --status-active: oklch(0.6 0.14 235);
+  --status-success: oklch(0.6 0.15 155);
+  --status-warning: oklch(0.68 0.14 75);
+  --status-danger: oklch(0.55 0.19 22);
+}
+
+.dark {
+  --background: oklch(0.16 0.008 265); /* near-black, faint cool cast */
+  --foreground: oklch(0.96 0.003 260);
+  --card: oklch(0.2 0.009 265);
+  --muted: oklch(0.24 0.01 265);
+  --muted-foreground: oklch(0.66 0.012 265);
+  --border: oklch(0.28 0.01 265);
+  --primary: oklch(0.68 0.15 268);
+  --primary-foreground: oklch(0.16 0.008 265);
+
+  --status-idle: oklch(0.6 0.01 265);
+  --status-active: oklch(0.72 0.14 235);
+  --status-success: oklch(0.72 0.15 155);
+  --status-warning: oklch(0.78 0.14 75);
+  --status-danger: oklch(0.65 0.19 22);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-ring: var(--primary);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-status-idle: var(--status-idle);
+  --color-status-active: var(--status-active);
+  --color-status-success: var(--status-success);
+  --color-status-warning: var(--status-warning);
+  --color-status-danger: var(--status-danger);
+
+  --radius-sm: calc(var(--radius) - 0.25rem);
+  --radius-md: calc(var(--radius) - 0.125rem);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 0.25rem);
+
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-feature-settings: "cv05", "ss01";
+    font-variant-numeric: tabular-nums;
+  }
+}
