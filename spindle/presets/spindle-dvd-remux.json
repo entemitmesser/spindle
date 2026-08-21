@@ -1,0 +1,43 @@
+{
+  "PresetList": [
+    {
+      "PresetName": "Spindle DVD Remux",
+      "PresetDescription": "Standard-definition DVD, x265 medium, RF 18, decomb, no denoise.",
+      "Type": 1,
+      "Default": false,
+      "FileFormat": "av_mkv",
+      "Mp4HttpOptimize": false,
+      "VideoEncoder": "x265",
+      "VideoPreset": "medium",
+      "VideoQualityType": 2,
+      "VideoQvalue": 18,
+      "VideoFramerateMode": "vfr",
+      "PictureWidth": 720,
+      "PictureHeight": 576,
+      "PictureAutoCrop": true,
+      "PictureDeinterlaceFilter": "decomb",
+      "PictureDeinterlacePreset": "default",
+      "PictureDenoiseFilter": "off",
+      "AudioLanguageList": ["deu", "eng"],
+      "AudioSecondaryEncoderMode": true,
+      "AudioList": [
+        {
+          "AudioEncoder": "copy",
+          "AudioFallbackEncoder": "av_aac",
+          "AudioBitrate": 640,
+          "AudioMixdown": "none"
+        }
+      ],
+      "SubtitleLanguageList": ["deu", "eng"],
+      "SubtitleTrackSelectionBehavior": "all",
+      "SubtitleBurnBDSub": false,
+      "SubtitleBurnDVDSub": false,
+      "ChapterMarkers": true,
+      "Optimize": true
+    }
+  ],
+  "PresetFormatVersion": [51, 0, 0],
+  "VersionMajor": 1,
+  "VersionMinor": 0,
+  "VersionMicro": 0
+}

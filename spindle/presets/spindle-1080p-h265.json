@@ -1,0 +1,41 @@
+{
+  "PresetList": [
+    {
+      "PresetName": "Spindle 1080p H.265",
+      "PresetDescription": "1080p main feature, x265 medium, RF 22.",
+      "Type": 1,
+      "Default": true,
+      "FileFormat": "av_mkv",
+      "Mp4HttpOptimize": false,
+      "VideoEncoder": "x265",
+      "VideoPreset": "medium",
+      "VideoQualityType": 2,
+      "VideoQvalue": 22,
+      "VideoFramerateMode": "vfr",
+      "PictureWidth": 1920,
+      "PictureHeight": 1080,
+      "PictureAutoCrop": true,
+      "PictureDenoiseFilter": "off",
+      "AudioLanguageList": ["deu", "eng"],
+      "AudioSecondaryEncoderMode": true,
+      "AudioList": [
+        {
+          "AudioEncoder": "copy",
+          "AudioFallbackEncoder": "av_aac",
+          "AudioBitrate": 640,
+          "AudioMixdown": "none"
+        }
+      ],
+      "SubtitleLanguageList": ["deu", "eng"],
+      "SubtitleTrackSelectionBehavior": "all",
+      "SubtitleBurnBDSub": false,
+      "SubtitleBurnDVDSub": false,
+      "ChapterMarkers": true,
+      "Optimize": true
+    }
+  ],
+  "PresetFormatVersion": [51, 0, 0],
+  "VersionMajor": 1,
+  "VersionMinor": 0,
+  "VersionMicro": 0
+}

@@ -21,8 +21,6 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import csv
-import os
-import signal
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -30,6 +28,7 @@ from pathlib import Path
 import structlog
 
 from spindle.errors import AdapterError
+from spindle.utils.proc import kill_process_group, terminate_process_group
 
 logger = structlog.get_logger(__name__)
 
@@ -200,11 +199,11 @@ class MakeMkvAdapter:
         process = self._processes.get(handle)
         if process is None:
             return
-        _terminate_process_group(process)
+        terminate_process_group(process)
         try:
             await asyncio.wait_for(process.wait(), timeout=grace_period)
         except TimeoutError:
-            _kill_process_group(process)
+            kill_process_group(process)
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(process.wait(), timeout=5.0)
 
@@ -227,33 +226,6 @@ class MakeMkvAdapter:
                 f"makemkvcon exited with {process.returncode}", detail={"output_tail": tail}
             )
         return output
-
-
-def _terminate_process_group(process: asyncio.subprocess.Process) -> None:
-    """Kill the whole process group started with `start_new_session=True`, so
-    a `makemkvcon` that forked helpers doesn't leave orphans holding the
-    drive. `os.killpg`/`os.getpgid` don't exist on Windows (this dev
-    machine); `Process.terminate()` is the cross-platform fallback, same
-    pattern as `OpticalAdapter`'s POSIX-only ioctls."""
-    killpg = getattr(os, "killpg", None)
-    getpgid = getattr(os, "getpgid", None)
-    if killpg is not None and getpgid is not None:
-        with contextlib.suppress(ProcessLookupError):
-            killpg(getpgid(process.pid), signal.SIGTERM)
-        return
-    with contextlib.suppress(ProcessLookupError):
-        process.terminate()
-
-
-def _kill_process_group(process: asyncio.subprocess.Process) -> None:
-    killpg = getattr(os, "killpg", None)
-    getpgid = getattr(os, "getpgid", None)
-    if killpg is not None and getpgid is not None:
-        with contextlib.suppress(ProcessLookupError):
-            killpg(getpgid(process.pid), signal.SIGKILL)
-        return
-    with contextlib.suppress(ProcessLookupError):
-        process.kill()
 
 
 def _parse_robot_line(line: str) -> tuple[str, list[str]] | None:

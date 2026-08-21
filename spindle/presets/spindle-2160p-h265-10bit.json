@@ -1,0 +1,44 @@
+{
+  "PresetList": [
+    {
+      "PresetName": "Spindle 2160p H.265 10-bit",
+      "PresetDescription": "UHD main feature, x265 slow 10-bit, RF 24, HDR10 passthrough.",
+      "Type": 1,
+      "Default": false,
+      "FileFormat": "av_mkv",
+      "Mp4HttpOptimize": false,
+      "VideoEncoder": "x265_10bit",
+      "VideoPreset": "slow",
+      "VideoQualityType": 2,
+      "VideoQvalue": 24,
+      "VideoFramerateMode": "vfr",
+      "PictureWidth": 3840,
+      "PictureHeight": 2160,
+      "PictureAutoCrop": true,
+      "PictureDenoiseFilter": "off",
+      "PictureColorspacePreset": "off",
+      "VideoColorRange": "copy",
+      "VideoDynamicRangeCompressionPreset": "off",
+      "AudioLanguageList": ["deu", "eng"],
+      "AudioSecondaryEncoderMode": true,
+      "AudioList": [
+        {
+          "AudioEncoder": "copy",
+          "AudioFallbackEncoder": "av_aac",
+          "AudioBitrate": 640,
+          "AudioMixdown": "none"
+        }
+      ],
+      "SubtitleLanguageList": ["deu", "eng"],
+      "SubtitleTrackSelectionBehavior": "all",
+      "SubtitleBurnBDSub": false,
+      "SubtitleBurnDVDSub": false,
+      "ChapterMarkers": true,
+      "Optimize": true
+    }
+  ],
+  "PresetFormatVersion": [51, 0, 0],
+  "VersionMajor": 1,
+  "VersionMinor": 0,
+  "VersionMicro": 0
+}

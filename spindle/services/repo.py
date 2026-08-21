@@ -52,3 +52,13 @@ async def get_runnable_tasks(session: AsyncSession, job_id: int) -> list[Task]:
     )
     result = await session.execute(stmt)
     return list(result.scalars().all())
+
+
+async def get_tasks_for_job(session: AsyncSession, job_id: int) -> list[Task]:
+    """All of a job's tasks in `TaskKind` pipeline order (task ids are
+    assigned in that order at job creation) — unlike `get_runnable_tasks`,
+    this includes terminal/running tasks too, so the dispatcher can detect a
+    blocked pipeline instead of skipping past a stuck stage."""
+    stmt = select(Task).where(col(Task.job_id) == job_id).order_by(col(Task.id).asc())
+    result = await session.execute(stmt)
+    return list(result.scalars().all())

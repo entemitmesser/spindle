@@ -1,11 +1,11 @@
 """`Stage` protocol (architecture.md §1) plus the pipeline stages that exist
-so far: `IdentifyStage` and `RipStage`.
+so far: `IdentifyStage`, `RipStage` and `TranscodeStage`.
 
-Nothing dispatches stages automatically yet (that's phase 4's `Dispatcher`);
-`DriveWatcher` runs `identify_disc` eagerly at insert-time so a job gets a
-title without waiting on a dispatcher that doesn't exist yet. `RipStage` is
-fully implemented and tested against a `JobContext` built by hand, ready for
-the dispatcher to run once it lands.
+Nothing dispatches stages automatically except phase 4's `Dispatcher`
+(`spindle/services/queue.py`), which isn't wired into `main.py` yet —
+`DriveWatcher` still runs `identify_disc` eagerly at insert-time. Every stage
+here is fully implemented and tested against a `JobContext` built by hand,
+ready for the dispatcher (or a future `main.py` wiring) to run.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any, ClassVar, Protocol
 
 from spindle.adapters.ffmpeg import FfmpegAdapter
-from spindle.adapters.handbrake import HandBrakeAdapter, HandBrakeError
+from spindle.adapters.handbrake import EncodeProgress, HandBrakeAdapter, HandBrakeError
 from spindle.adapters.makemkv import MakeMkvAdapter, MakeMkvError, RipProgress
 from spindle.adapters.optical import OpticalAdapter
 from spindle.adapters.tmdb import TmdbAdapter
@@ -28,9 +28,16 @@ from spindle.models.drive import DriveStatus
 from spindle.models.job import JobStatus
 from spindle.models.task import TaskKind, TaskStatus
 from spindle.pipeline.context import JobContext
+from spindle.presets import find_preset
 from spindle.services.events import EventIn
 from spindle.services.identifier import identify_disc
 from spindle.services.ripper import TitleCandidate, TitleSelectionResult, select_titles
+from spindle.services.transcoder import (
+    build_overrides,
+    choose_encoder,
+    remap_quality,
+    resolve_preset_name,
+)
 from spindle.utils import fsutil
 from spindle.utils.naming import normalize_disc_label
 from spindle.utils.progress import Throttler
@@ -416,3 +423,274 @@ class RipStage:
                 await asyncio.to_thread(self._optical.eject, ctx.drive.device_path)
         ctx.drive.status = DriveStatus.EMPTY
         ctx.drive.current_job_id = None
+
+
+_TRANSCODE_MIN_SIZE_RATIO = 0.05  # of source, per phase-04 task 4
+_TRANSCODE_PREFLIGHT_HEADROOM_RATIO = 0.6
+_TRANSCODE_PREFLIGHT_MIN_BYTES = 10 * 1024**3
+
+
+@dataclass(frozen=True)
+class _SourceFile:
+    path: Path
+    size_bytes: int
+    duration_seconds: float | None
+
+
+def _progress_message(encoder: str, progress: EncodeProgress, index: int, total: int) -> str:
+    parts = [encoder]
+    if progress.fps is not None:
+        parts.append(f"{progress.fps:.0f} fps")
+    if total > 1:
+        parts.append(f"file {index} of {total}")
+    return " · ".join(parts)
+
+
+def _format_source_duration(seconds: float | None) -> str:
+    if seconds is None:
+        return "unknown"
+    return f"{int(seconds) // 60} min"
+
+
+class TranscodeStage:
+    """HandBrake encode -> verify, per phase-04-transcode-engine.md task 4.
+
+    Reads whatever `RipStage` left in `work/raw/job-X/` (one or more `*.mkv`
+    files) rather than a DB-backed media file list — `RipStage` doesn't
+    persist one either (see its docstring above); turning
+    `StageResult.meta["media_files"]` into `MediaFile` rows is a future
+    dispatcher/organizer concern.
+    """
+
+    kind: ClassVar[TaskKind] = TaskKind.TRANSCODE
+
+    def __init__(
+        self,
+        handbrake: HandBrakeAdapter,
+        ffmpeg: FfmpegAdapter,
+        *,
+        user_preset_dir: Path | None = None,
+    ) -> None:
+        self._handbrake = handbrake
+        self._ffmpeg = ffmpeg
+        self._user_preset_dir = user_preset_dir
+        # Keyed by job id: the output path currently being written, same
+        # cancel/cleanup bookkeeping as `RipStage._active_output`.
+        self._active_output: dict[int, Path] = {}
+
+    async def can_skip(self, ctx: JobContext) -> bool:
+        if ctx.job.id is None or not ctx.config.transcode.enabled:
+            return False
+        sources = await self._source_files(ctx)
+        if not sources:
+            return False
+        out_dir = fsutil.transcode_dir(ctx.work_dir, ctx.job.id)
+        for src in sources:
+            if not await self._verify_output(out_dir / src.path.name, src):
+                return False
+        return True
+
+    async def run(self, ctx: JobContext) -> StageResult:
+        job = ctx.job
+        if job.id is None:
+            return StageResult(status=TaskStatus.FAILED, message="Job has no id.")
+
+        sources = await self._source_files(ctx)
+        if not sources:
+            return StageResult(
+                status=TaskStatus.FAILED, message="No ripped source files to transcode."
+            )
+
+        if not ctx.config.transcode.enabled:
+            job.meta = {**job.meta, "encoder": "passthrough"}
+            passthrough_files = [
+                {
+                    "path": str(src.path),
+                    "role": "transcoded",
+                    "size_bytes": src.size_bytes,
+                    "duration_seconds": int(src.duration_seconds or 0),
+                }
+                for src in sources
+            ]
+            return StageResult(
+                status=TaskStatus.SUCCEEDED,
+                artifacts=[src.path for src in sources],
+                meta={"accepted": True, "media_files": passthrough_files},
+            )
+
+        total_source_bytes = sum(src.size_bytes for src in sources)
+        if not await self._has_enough_free_space(ctx, total_source_bytes):
+            await ctx.emit(
+                EventIn(
+                    type="system.warning",
+                    job_id=job.id,
+                    drive_id=ctx.drive.id if ctx.drive is not None else None,
+                    data={
+                        "code": "low_disk_space",
+                        "message": (
+                            "Not enough free space on the work volume to transcode this job."
+                        ),
+                    },
+                )
+            )
+            return StageResult(
+                status=TaskStatus.FAILED, message="Not enough free space to transcode."
+            )
+
+        disc_type = ctx.disc.disc_type if ctx.disc is not None else None
+        preset_name = resolve_preset_name(disc_type, ctx.config.transcode)
+        preset = find_preset(preset_name, self._user_preset_dir)
+        if preset is None:
+            return StageResult(
+                status=TaskStatus.FAILED, message=f"Unknown transcode preset {preset_name!r}."
+            )
+
+        available_encoders = await self._handbrake.available_encoders()
+        encoder = choose_encoder(ctx.config.transcode, available_encoders, preset_name)
+        quality = remap_quality(encoder, ctx.config.transcode.quality)
+        overrides = build_overrides(ctx.config.transcode, encoder, quality)
+
+        out_dir = fsutil.transcode_dir(ctx.work_dir, job.id)
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        weights = [
+            src.duration_seconds if src.duration_seconds and src.duration_seconds > 0 else 1.0
+            for src in sources
+        ]
+        total_weight = sum(weights) or 1.0
+        elapsed_weight = 0.0
+        total = len(sources)
+        throttler = Throttler(1.0)
+
+        artifacts: list[Path] = []
+        media_files: list[dict[str, Any]] = []
+
+        try:
+            for index, src in enumerate(sources, start=1):
+                dest = out_dir / src.path.name
+                self._active_output[job.id] = dest
+                weight = weights[index - 1]
+                base_weight = elapsed_weight
+
+                async def on_progress(
+                    progress: EncodeProgress,
+                    *,
+                    _index: int = index,
+                    _weight: float = weight,
+                    _base: float = base_weight,
+                ) -> None:
+                    if not throttler.should_emit():
+                        return
+                    overall = (_base + _weight * progress.progress) / total_weight
+                    await ctx.emit(
+                        EventIn(
+                            type="task.progress",
+                            job_id=job.id,
+                            data={
+                                "kind": TaskKind.TRANSCODE.value,
+                                "progress": min(1.0, max(0.0, overall)),
+                                "eta_seconds": progress.eta_seconds,
+                                "message": _progress_message(encoder, progress, _index, total),
+                            },
+                        )
+                    )
+
+                await self._handbrake.encode(
+                    src.path,
+                    dest,
+                    preset_file=preset.file,
+                    preset_name=preset_name,
+                    overrides=overrides,
+                    on_progress=on_progress,
+                    handle=job.id,
+                )
+                self._active_output.pop(job.id, None)
+
+                if not await self._verify_output(dest, src):
+                    dest.unlink(missing_ok=True)
+                    job.status = JobStatus.NEEDS_REVIEW
+                    return StageResult(
+                        status=TaskStatus.SUCCEEDED,
+                        meta={"accepted": False},
+                        message=(
+                            f"Transcode output for {src.path.name} looks wrong "
+                            f"(source duration {_format_source_duration(src.duration_seconds)})."
+                            " Check the log."
+                        ),
+                    )
+
+                probe = await self._ffmpeg.probe(dest)
+                assert probe is not None  # noqa: S101 -- _verify_output already confirmed this
+                artifacts.append(dest)
+                media_files.append(
+                    {
+                        "path": str(dest),
+                        "role": "transcoded",
+                        "size_bytes": probe.size_bytes,
+                        "duration_seconds": int(probe.duration_seconds or 0),
+                        "video_codec": probe.video_codec,
+                    }
+                )
+                elapsed_weight += weight
+        except HandBrakeError as exc:
+            return StageResult(status=TaskStatus.FAILED, message=f"Transcode failed: {exc.message}")
+        finally:
+            self._active_output.pop(job.id, None)
+
+        if not ctx.config.rip.keep_raw_after_transcode:
+            shutil.rmtree(fsutil.raw_dir(ctx.work_dir, job.id), ignore_errors=True)
+
+        job.meta = {**job.meta, "encoder": encoder}
+        return StageResult(
+            status=TaskStatus.SUCCEEDED,
+            artifacts=artifacts,
+            meta={"accepted": True, "media_files": media_files},
+        )
+
+    async def cleanup(self, ctx: JobContext) -> None:
+        job_id = ctx.job.id
+        if job_id is None:
+            return
+        await self._handbrake.cancel(job_id)
+        pending = self._active_output.pop(job_id, None)
+        if pending is not None:
+            pending.unlink(missing_ok=True)
+
+    # -- internals -----------------------------------------------------
+
+    async def _source_files(self, ctx: JobContext) -> list[_SourceFile]:
+        if ctx.job.id is None:
+            return []
+        raw = fsutil.raw_dir(ctx.work_dir, ctx.job.id)
+        if not raw.is_dir():
+            return []
+        sources = []
+        for path in sorted(raw.glob("*.mkv")):
+            probe = await self._ffmpeg.probe(path)
+            sources.append(
+                _SourceFile(
+                    path=path,
+                    size_bytes=probe.size_bytes if probe is not None else _file_size(path),
+                    duration_seconds=probe.duration_seconds if probe is not None else None,
+                )
+            )
+        return sources
+
+    async def _verify_output(self, dest: Path, src: _SourceFile) -> bool:
+        probe = await self._ffmpeg.probe(dest)
+        if probe is None or not probe.has_video:
+            return False
+        if src.duration_seconds is not None and not _duration_matches(
+            probe.duration_seconds, int(src.duration_seconds)
+        ):
+            return False
+        min_size = src.size_bytes * _TRANSCODE_MIN_SIZE_RATIO
+        return not (src.size_bytes > 0 and probe.size_bytes < min_size)
+
+    async def _has_enough_free_space(self, ctx: JobContext, total_source_bytes: int) -> bool:
+        usage = await asyncio.to_thread(shutil.disk_usage, ctx.work_dir)
+        required = max(
+            int(total_source_bytes * _TRANSCODE_PREFLIGHT_HEADROOM_RATIO),
+            _TRANSCODE_PREFLIGHT_MIN_BYTES,
+        )
+        return usage.free >= required
