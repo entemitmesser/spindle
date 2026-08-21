@@ -244,6 +244,17 @@ class DriveWatcher:
         return job
 
     async def _identify_and_build_job(self, disc: Disc, dev: str, disc_type: DiscType) -> Job:
+        if disc_type == DiscType.AUDIO_CD:
+            # Out of scope for the rip stage in v1 (phase-03-rip-engine.md task
+            # 6) — classify, create the job, park it immediately. Do not
+            # half-build audio ripping.
+            return Job(
+                disc_id=disc.id,
+                status=JobStatus.NEEDS_REVIEW,
+                media_kind=MediaKind.MUSIC,
+                error="Audio CDs aren't supported yet.",
+            )
+
         normalized_title, hints = normalize_disc_label(disc.label or "")
         disc_runtime_minutes = await asyncio.to_thread(
             self._main_title_runtime_minutes, dev, disc_type

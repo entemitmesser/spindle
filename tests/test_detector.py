@@ -12,7 +12,7 @@ from spindle.config import ConfigStore
 from spindle.models.disc import Disc
 from spindle.models.drive import Drive, DriveStatus
 from spindle.models.event import Event
-from spindle.models.job import Job, JobStatus
+from spindle.models.job import Job, JobStatus, MediaKind
 from spindle.services.detector import DriveWatcher
 from spindle.services.events import EventBus
 
@@ -265,3 +265,29 @@ class TestDriveLifecycle:
         async with session_factory() as session:
             disc = (await session.execute(select(Disc))).scalar_one()
         assert disc.disc_type is not None
+
+    async def test_audio_cd_insert_parks_needs_review_without_calling_tmdb(
+        self,
+        watcher: DriveWatcher,
+        fake_adapter: _FakeAdapter,
+        session_factory: async_sessionmaker[AsyncSession],
+        fake_tmdb: _FakeTmdb,
+    ) -> None:
+        fake_adapter.disc_status_value = DiscStatus.AUDIO
+
+        await watcher.poll_once()
+        fake_adapter.tray = TrayStatus.DISC_OK
+        await watcher.poll_once()
+        await asyncio.sleep(0.15)
+        await watcher.poll_once()
+
+        drive = await _get_drive(session_factory)
+        async with session_factory() as session:
+            job = await session.get(Job, drive.current_job_id)
+
+        assert job is not None
+        assert job.status == JobStatus.NEEDS_REVIEW
+        assert job.media_kind == MediaKind.MUSIC
+        assert job.error == "Audio CDs aren't supported yet."
+        assert fake_tmdb.movie_calls == 0
+        assert fake_tmdb.tv_calls == 0
