@@ -23,6 +23,11 @@ def app(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[FastAPI]:
     # Alembic is exercised directly in test_alembic.py; skip it here for speed
     # and isolation and create the schema straight from the models instead.
     monkeypatch.setenv("SPINDLE_RUN_MIGRATIONS", "false")
+    # The Dispatcher/DriveWatcher poll immediately on startup (unlike
+    # CleanupService, which sleeps first) — leaving them on would race
+    # every test that creates its own Job/Drive rows. Tests that want the
+    # real background wiring set this env var themselves.
+    monkeypatch.setenv("SPINDLE_RUN_BACKGROUND_WORKERS", "false")
     yield create_app()
 
 

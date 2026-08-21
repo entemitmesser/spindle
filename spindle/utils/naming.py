@@ -1,7 +1,14 @@
 from __future__ import annotations
 
 import re
+import string
+import unicodedata
+from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, cast
+
+from spindle.errors import ValidationFailedError
 
 _SEPARATORS = re.compile(r"[._]+")
 _WORD_RUN = re.compile(r"[A-Za-z']+")
@@ -106,3 +113,150 @@ def normalize_disc_label(label: str) -> tuple[str, DiscLabelHints]:
 
     title = " ".join(_titlecase_token(t) for t in tokens).strip()
     return title, DiscLabelHints(disc_number=disc_number, season=season, edition=edition)
+
+
+# -- Library naming templates, per architecture.md §6 -----------------------
+#
+# `render_template`/`sanitize_segment`/`resolve_destination` are unrelated to
+# the disc-label normalizer above: they turn a *library naming template*
+# (user-configurable, `LibraryConfig` in `spindle/config.py`) into a safe
+# filesystem path for `OrganizeStage`. Kept dependency-free (stdlib only) so
+# `LibraryConfig` can call `validate_template` at settings-save time without
+# a circular import.
+
+NAMING_VARIABLES: frozenset[str] = frozenset(
+    {
+        "title",
+        "original_title",
+        "year",
+        "season",
+        "episode",
+        "episode_title",
+        "tmdb_id",
+        "imdb_id",
+        "source",
+        "resolution",
+        "video_codec",
+        "audio_codec",
+        "edition",
+    }
+)
+
+# Covers the whole fixed variable set with plausible values so
+# `validate_template` can catch an unknown variable or a bad format spec
+# (e.g. `{title:02d}`) at settings-save time, without a real job on hand.
+_DUMMY_NAMING_VARIABLES: dict[str, Any] = {
+    "title": "Title",
+    "original_title": "Original Title",
+    "year": 2000,
+    "season": 1,
+    "episode": 1,
+    "episode_title": "Episode Title",
+    "tmdb_id": 1,
+    "imdb_id": "tt0000000",
+    "source": "Bluray",
+    "resolution": "1080p",
+    "video_codec": "h265",
+    "audio_codec": "aac",
+    "edition": "Extended Edition",
+}
+
+
+class _RestrictedFormatter(string.Formatter):
+    """A `string.Formatter` that only allows the fixed `NAMING_VARIABLES`
+    set, as plain field names — never `eval`, never attribute/index access
+    (`{title.upper}`, `{title[0]}`), never positional/auto-numbered fields
+    (`{}`, `{0}`) and never conversions (`{title!r}`)."""
+
+    def get_field(self, field_name: str, args: Any, kwargs: Any) -> tuple[Any, Any]:
+        if not field_name.isidentifier():
+            raise ValidationFailedError(f"Invalid naming template field: {{{field_name}}}")
+        return cast("tuple[Any, Any]", super().get_field(field_name, args, kwargs))
+
+    def get_value(self, key: object, args: Any, kwargs: Mapping[str, Any]) -> Any:
+        if not isinstance(key, str):
+            raise ValidationFailedError("Naming templates cannot use positional fields.")
+        if key not in NAMING_VARIABLES:
+            raise ValidationFailedError(f"Unknown naming template variable: {{{key}}}")
+        if key not in kwargs:
+            raise ValidationFailedError(f"Naming template variable {{{key}}} has no value here.")
+        return kwargs[key]
+
+    def convert_field(self, value: Any, conversion: str | None) -> Any:
+        if conversion is not None:
+            raise ValidationFailedError("Naming templates cannot use conversions (e.g. {x!r}).")
+        return value
+
+
+_FORMATTER = _RestrictedFormatter()
+
+
+def render_template(template: str, variables: Mapping[str, Any]) -> str:
+    """Renders `template` against `variables` with the restricted formatter.
+    Raises `ValidationFailedError` for an unknown/malformed field, a bad
+    format spec, or a referenced variable that isn't in `variables`."""
+    try:
+        return _FORMATTER.vformat(template, (), variables)
+    except ValidationFailedError:
+        raise
+    except (ValueError, IndexError, TypeError) as exc:
+        raise ValidationFailedError(f"Invalid naming template {template!r}: {exc}") from exc
+
+
+def validate_template(template: str) -> None:
+    """Settings-save-time check (phase-06 acceptance criteria): renders
+    `template` against a full dummy variable set so an unknown variable or a
+    bad format spec is caught here, not later when `OrganizeStage` runs and
+    a real job is legitimately missing e.g. `episode`."""
+    render_template(template, _DUMMY_NAMING_VARIABLES)
+
+
+_ILLEGAL_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+_WHITESPACE_RUN = re.compile(r"\s+")
+_MAX_SEGMENT_LEN = 180
+
+
+def sanitize_segment(segment: str) -> str:
+    """One path *segment* (never a full path -- a template's own `/` are
+    directory separators, handled by `render_path`, not text to preserve).
+
+    Strips `<>:"/\\|?*` and control chars, collapses whitespace, strips
+    trailing dots/spaces (Windows/SMB shares break on these regardless of
+    the local filesystem, per phase-06's gotcha), NFC-normalizes, and
+    truncates to 180 chars on a word boundary.
+    """
+    normalized = unicodedata.normalize("NFC", segment)
+    stripped = _ILLEGAL_CHARS.sub("", normalized)
+    collapsed = _WHITESPACE_RUN.sub(" ", stripped).strip()
+    trimmed = collapsed.rstrip(". ")
+    if len(trimmed) <= _MAX_SEGMENT_LEN:
+        return trimmed
+    truncated = trimmed[:_MAX_SEGMENT_LEN]
+    head, sep, _tail = truncated.rpartition(" ")
+    if sep:
+        truncated = head
+    return truncated.rstrip(". ")
+
+
+def render_path(template: str, variables: Mapping[str, Any]) -> Path:
+    """Renders `template`, splits it on `/` into directory segments, and
+    sanitizes each segment independently. Empty segments (e.g. a sanitized
+    title that came out blank) are dropped."""
+    rendered = render_template(template, variables)
+    parts = [sanitize_segment(part) for part in rendered.split("/")]
+    parts = [p for p in parts if p]
+    if not parts:
+        raise ValidationFailedError(f"Naming template {template!r} rendered to an empty path.")
+    return Path(*parts)
+
+
+def resolve_destination(base_dir: Path, relative: Path) -> Path:
+    """Joins `relative` under `base_dir` and guarantees the result is under
+    `base_dir` after `.resolve()` -- architecture.md §8's path-traversal
+    defense. `relative` should already be built from sanitized segments
+    (`render_path`); this is the backstop, not the primary defense."""
+    base_resolved = base_dir.resolve()
+    candidate = (base_resolved / relative).resolve()
+    if candidate != base_resolved and base_resolved not in candidate.parents:
+        raise ValidationFailedError(f"Resolved path escapes the library directory: {relative}")
+    return candidate

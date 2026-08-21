@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from typing import Final
 
@@ -18,6 +18,7 @@ logger = structlog.get_logger(__name__)
 _PROGRESS_EVENT_TYPES: Final = {"task.progress"}
 _QUEUE_MAXSIZE: Final = 500
 _RETENTION_LIMIT: Final = 50_000
+_DEFAULT_REPLAY: Final = 50
 _CLOSED: Final = object()
 
 _QueueItem = Event | object
@@ -61,14 +62,23 @@ class EventBus:
         await self._fan_out(row)
         return row
 
-    async def subscribe(self, last_event_id: int | None = None) -> AsyncIterator[Event]:
-        if last_event_id is not None:
-            async with self._session_factory() as session:
+    async def subscribe(self, last_event_id: int | None = None) -> AsyncGenerator[Event, None]:
+        """Replays history before going live: everything after `last_event_id`
+        if given (SSE reconnect via `Last-Event-ID`), otherwise the last
+        `_DEFAULT_REPLAY` events (a fresh connect) — phase-07 task 3."""
+        async with self._session_factory() as session:
+            if last_event_id is not None:
                 result = await session.execute(
                     select(Event).where(col(Event.id) > last_event_id).order_by(col(Event.id))
                 )
-                for row in result.scalars().all():
-                    yield row
+                replay = list(result.scalars().all())
+            else:
+                result = await session.execute(
+                    select(Event).order_by(col(Event.id).desc()).limit(_DEFAULT_REPLAY)
+                )
+                replay = list(reversed(result.scalars().all()))
+        for row in replay:
+            yield row
 
         queue: asyncio.Queue[_QueueItem] = asyncio.Queue(maxsize=_QUEUE_MAXSIZE)
         async with self._lock:

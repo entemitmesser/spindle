@@ -9,10 +9,11 @@ from pydantic import BaseModel, ConfigDict, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from spindle.errors import ConfigurationError
+from spindle.errors import ConfigurationError, ValidationFailedError
 from spindle.models.setting import Setting
 from spindle.models.types import utc_now
 from spindle.services.events import EventBus, EventIn
+from spindle.utils.naming import validate_template
 
 
 class Settings(BaseSettings):
@@ -27,6 +28,7 @@ class Settings(BaseSettings):
     log_json: bool = False
     dev_mode: bool = False
     run_migrations: bool = True
+    run_background_workers: bool = True
     tmdb_api_key: SecretStr | None = None
     opensubtitles_api_key: SecretStr | None = None
     jellyfin_url: str | None = None
@@ -103,6 +105,26 @@ class LibraryConfig(_RuntimeModel):
     series_file_template: str = "{title} - S{season:02d}E{episode:02d}"
     include_tmdb_id: bool = False
     on_conflict: Literal["review", "overwrite", "keep_both"] = "review"
+    write_nfo: bool = False
+    file_mode: int = 0o664
+    dir_mode: int = 0o775
+
+    @model_validator(mode="after")
+    def _validate_templates(self) -> LibraryConfig:
+        for template in (
+            self.movie_dir_template,
+            self.movie_file_template,
+            self.series_dir_template,
+            self.series_file_template,
+        ):
+            try:
+                validate_template(template)
+            except ValidationFailedError as exc:
+                # pydantic only wraps ValueError/TypeError/AssertionError raised
+                # from a validator into its own ValidationError -- translate so
+                # PUT /settings still 422s through the normal pydantic path.
+                raise ValueError(str(exc)) from exc
+        return self
 
 
 class BehaviourConfig(_RuntimeModel):
@@ -117,10 +139,11 @@ class BehaviourConfig(_RuntimeModel):
 class NotificationConfig(_RuntimeModel):
     enabled: bool = False
     webhook_url: str | None = None
-    notify_on: list[Literal["needs_review", "completed", "failed"]] = [
+    notify_on: list[Literal["needs_review", "completed", "failed", "system_warning"]] = [
         "needs_review",
         "completed",
         "failed",
+        "system_warning",
     ]
 
 

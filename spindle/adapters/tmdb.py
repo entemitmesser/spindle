@@ -5,6 +5,7 @@ to `needs_review` with a clear message instead of crashing.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import time
@@ -18,7 +19,14 @@ from spindle.errors import AdapterError
 
 logger = structlog.get_logger(__name__)
 
+
+def _write_image_file(dest: Path, content: bytes) -> None:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(content)
+
+
 _BASE_URL = "https://api.themoviedb.org/3"
+_IMAGE_BASE_URL = "https://image.tmdb.org/t/p"
 _CACHE_TTL_SECONDS = 7 * 24 * 3600
 
 
@@ -33,6 +41,10 @@ class TmdbAdapter:
         self._client = client
         self._api_key = api_key
         self._cache_dir = cache_dir
+
+    @property
+    def is_configured(self) -> bool:
+        return bool(self._api_key)
 
     async def search_movie(self, query: str, *, year: int | None = None) -> list[dict[str, Any]]:
         params: dict[str, Any] = {"query": query}
@@ -55,6 +67,20 @@ class TmdbAdapter:
         self, tmdb_id: int, *, media_kind: str = "movie"
     ) -> dict[str, Any] | None:
         return await self._get(f"/{media_kind}/{tmdb_id}/external_ids", {})
+
+    async def download_image(self, image_path: str, dest: Path, *, size: str = "original") -> bool:
+        """Best-effort poster/backdrop download (phase-05 task 4) — never
+        raises, since missing artwork shouldn't fail the job."""
+        if not image_path:
+            return False
+        try:
+            response = await self._client.get(f"{_IMAGE_BASE_URL}/{size}{image_path}")
+            response.raise_for_status()
+        except httpx.HTTPError:
+            logger.warning("tmdb.image_download_failed", image_path=image_path)
+            return False
+        await asyncio.to_thread(_write_image_file, dest, response.content)
+        return True
 
     async def _get(self, path: str, params: dict[str, Any]) -> dict[str, Any] | None:
         if not self._api_key:

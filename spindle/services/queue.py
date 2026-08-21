@@ -102,6 +102,7 @@ class Dispatcher:
         *,
         work_dir: Path,
         data_dir: Path,
+        library_dir: Path | None = None,
         poll_interval: float = _DEFAULT_POLL_INTERVAL,
     ) -> None:
         self._stages = stages
@@ -110,6 +111,7 @@ class Dispatcher:
         self._config_store = config_store
         self._work_dir = work_dir
         self._data_dir = data_dir
+        self._library_dir = library_dir
         self._poll_interval = poll_interval
 
         self.wake_event = asyncio.Event()
@@ -251,6 +253,7 @@ class Dispatcher:
                 config_store=self._config_store,
                 work_dir=self._work_dir,
                 data_dir=self._data_dir,
+                library_dir=self._library_dir,
                 job_id=job_id,
                 task_id=task_id,
             )
@@ -268,6 +271,7 @@ async def run_stage(
     config_store: ConfigStore,
     work_dir: Path,
     data_dir: Path,
+    library_dir: Path | None = None,
     job_id: int,
     task_id: int,
 ) -> None:
@@ -308,6 +312,8 @@ async def run_stage(
             config=config,
             emit=emit,
             logger=logger,
+            library_dir=library_dir,
+            data_dir=data_dir,
         )
 
         old_job_status = job.status

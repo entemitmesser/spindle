@@ -9,10 +9,27 @@ class HealthResponse(BaseModel):
     uptime_seconds: float
 
 
+class BackendStatus(BaseModel):
+    available: bool
+    version: str | None = None
+
+
+class DiskUsage(BaseModel):
+    label: str
+    path: str
+    total_bytes: int
+    free_bytes: int
+
+
+class SystemWarning(BaseModel):
+    code: str
+    message: str
+
+
 class SystemInfo(BaseModel):
-    status: str
     version: str
     uptime_seconds: float
+    backends: dict[str, BackendStatus] = {}
     encoders: list[str] = []
-    backends: list[str] = []
-    disk_space: list[dict[str, object]] = []
+    disk: list[DiskUsage] = []
+    warnings: list[SystemWarning] = []

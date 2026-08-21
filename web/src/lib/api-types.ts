@@ -12,7 +12,7 @@ export interface paths {
             cookie?: never;
         };
         /** Health */
-        get: operations["health_api_v1_system_health_get"];
+        get: operations["get_health"];
         put?: never;
         post?: never;
         delete?: never;
@@ -29,7 +29,351 @@ export interface paths {
             cookie?: never;
         };
         /** System Info */
-        get: operations["system_info_api_v1_system_get"];
+        get: operations["get_system_info"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/drives": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Drives */
+        get: operations["list_drives"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/drives/{drive_id}/eject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Eject Drive */
+        post: operations["eject_drive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/drives/{drive_id}/rescan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rescan Drive */
+        post: operations["rescan_drive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/drives/{drive_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Drive */
+        patch: operations["update_drive"];
+        trace?: never;
+    };
+    "/api/v1/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Jobs */
+        get: operations["list_jobs"];
+        put?: never;
+        /** Create Job */
+        post: operations["create_job"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Job */
+        get: operations["get_job"];
+        put?: never;
+        post?: never;
+        /** Delete Job */
+        delete: operations["delete_job"];
+        options?: never;
+        head?: never;
+        /** Update Job */
+        patch: operations["update_job"];
+        trace?: never;
+    };
+    "/api/v1/jobs/{job_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry Job */
+        post: operations["retry_job"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/jobs/{job_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Job */
+        post: operations["cancel_job"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/jobs/{job_id}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pause Job */
+        post: operations["pause_job"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/jobs/{job_id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume Job */
+        post: operations["resume_job"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/jobs/{job_id}/logs/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Job Log */
+        get: operations["get_job_log"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Queue */
+        get: operations["get_queue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/queue/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reorder Queue */
+        post: operations["reorder_queue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Settings Endpoint */
+        get: operations["get_settings"];
+        /** Update Settings Endpoint */
+        put: operations["update_settings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Presets Endpoint */
+        get: operations["list_presets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/test/{target}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Test Settings Target */
+        post: operations["test_settings_target"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search Metadata */
+        get: operations["search_metadata"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/{tmdb_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Metadata */
+        get: operations["get_metadata"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/events/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stream Events */
+        get: operations["stream_events"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Events */
+        get: operations["list_events"];
         put?: never;
         post?: never;
         delete?: never;
@@ -42,6 +386,135 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** BackendStatus */
+        BackendStatus: {
+            /** Available */
+            available: boolean;
+            /** Version */
+            version?: string | null;
+        };
+        /** BehaviourConfig */
+        BehaviourConfig: {
+            /**
+             * Auto Start
+             * @default true
+             */
+            auto_start: boolean;
+            /**
+             * Auto Eject
+             * @default true
+             */
+            auto_eject: boolean;
+            /**
+             * Identify Confidence Threshold
+             * @default 0.75
+             */
+            identify_confidence_threshold: number;
+            /**
+             * Min Free Bytes
+             * @default 85899345920
+             */
+            min_free_bytes: number;
+            /**
+             * Completed Retention Days
+             * @default 7
+             */
+            completed_retention_days: number;
+            /**
+             * Max Retries
+             * @default 2
+             */
+            max_retries: number;
+        };
+        /** DiscOut */
+        DiscOut: {
+            /** Id */
+            id: number;
+            disc_type: components["schemas"]["DiscType"];
+            /** Label */
+            label: string | null;
+            /** Size Bytes */
+            size_bytes: number | null;
+            /**
+             * Detected At
+             * Format: date-time
+             */
+            detected_at: string;
+        };
+        /**
+         * DiscType
+         * @enum {string}
+         */
+        DiscType: "dvd" | "bluray" | "uhd_bluray" | "audio_cd" | "data" | "unknown";
+        /** DiskUsage */
+        DiskUsage: {
+            /** Label */
+            label: string;
+            /** Path */
+            path: string;
+            /** Total Bytes */
+            total_bytes: number;
+            /** Free Bytes */
+            free_bytes: number;
+        };
+        /** DriveOut */
+        DriveOut: {
+            /** Id */
+            id: number;
+            /** Device Path */
+            device_path: string;
+            /** Display Name */
+            display_name: string | null;
+            /** Model */
+            model: string | null;
+            status: components["schemas"]["DriveStatus"];
+            /** Is Enabled */
+            is_enabled: boolean;
+            disc?: components["schemas"]["DiscOut"] | null;
+            job?: components["schemas"]["JobSummary"] | null;
+        };
+        /** DrivePatch */
+        DrivePatch: {
+            /** Is Enabled */
+            is_enabled?: boolean | null;
+            /** Display Name */
+            display_name?: string | null;
+        };
+        /**
+         * DriveStatus
+         * @enum {string}
+         */
+        DriveStatus: "empty" | "loading" | "ready" | "busy" | "error" | "disabled";
+        /** DrivesResponse */
+        DrivesResponse: {
+            /** Items */
+            items: components["schemas"]["DriveOut"][];
+        };
+        /** EventOut */
+        EventOut: {
+            /** Id */
+            id: number;
+            /** Type */
+            type: string;
+            /**
+             * Ts
+             * Format: date-time
+             */
+            ts: string;
+            /** Job Id */
+            job_id: number | null;
+            /** Drive Id */
+            drive_id: number | null;
+            /** Data */
+            data: {
+                [key: string]: unknown;
+            };
+        };
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
         /** HealthResponse */
         HealthResponse: {
             /** Status */
@@ -51,31 +524,597 @@ export interface components {
             /** Uptime Seconds */
             uptime_seconds: number;
         };
+        /**
+         * JobCreate
+         * @description `POST /jobs` — a manual job from an existing file (no disc).
+         */
+        JobCreate: {
+            /** Source Path */
+            source_path: string;
+            /** @default movie */
+            media_kind: components["schemas"]["MediaKind"];
+            /** Title */
+            title?: string | null;
+            /** Year */
+            year?: number | null;
+            /** Tmdb Id */
+            tmdb_id?: number | null;
+        };
+        /** JobDetail */
+        JobDetail: {
+            /** Id */
+            id: number;
+            status: components["schemas"]["JobStatus"];
+            media_kind: components["schemas"]["MediaKind"];
+            /** Title */
+            title: string | null;
+            /** Year */
+            year: number | null;
+            /** Poster Url */
+            poster_url: string | null;
+            current_task: components["schemas"]["TaskKind"] | null;
+            /** Progress */
+            progress: number;
+            /** Eta Seconds */
+            eta_seconds: number | null;
+            /** Drive Id */
+            drive_id: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Tasks */
+            tasks: components["schemas"]["TaskOut"][];
+            /** Media Files */
+            media_files: components["schemas"]["MediaFileOut"][];
+            disc: components["schemas"]["DiscOut"] | null;
+            /** Confidence */
+            confidence: number | null;
+            /** Candidates */
+            candidates: components["schemas"]["MetadataCandidate"][];
+            /** Error */
+            error: string | null;
+            /** Meta */
+            meta: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * JobPatch
+         * @description `PATCH /jobs/{id}` — allowed only while `queued`, `paused` or
+         *     `needs_review` (phase-07 task 2). `episodes` has no dedicated `Job`
+         *     column; it's stashed in `Job.meta` alongside the other naming-template
+         *     extras (`edition`, `episode_title`) that `OrganizeStage` already reads.
+         */
+        JobPatch: {
+            /** Title */
+            title?: string | null;
+            /** Year */
+            year?: number | null;
+            media_kind?: components["schemas"]["MediaKind"] | null;
+            /** Tmdb Id */
+            tmdb_id?: number | null;
+            /** Season */
+            season?: number | null;
+            /** Episodes */
+            episodes?: number[] | null;
+        };
+        /** JobRetryRequest */
+        JobRetryRequest: {
+            from_stage?: components["schemas"]["TaskKind"] | null;
+        };
+        /**
+         * JobStatus
+         * @enum {string}
+         */
+        JobStatus: "queued" | "running" | "paused" | "needs_review" | "completed" | "failed" | "cancelled";
+        /** JobSummary */
+        JobSummary: {
+            /** Id */
+            id: number;
+            status: components["schemas"]["JobStatus"];
+            media_kind: components["schemas"]["MediaKind"];
+            /** Title */
+            title: string | null;
+            /** Year */
+            year: number | null;
+            /** Poster Url */
+            poster_url: string | null;
+            current_task: components["schemas"]["TaskKind"] | null;
+            /** Progress */
+            progress: number;
+            /** Eta Seconds */
+            eta_seconds: number | null;
+            /** Drive Id */
+            drive_id: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** LibraryConfig */
+        LibraryConfig: {
+            /**
+             * Movies Dir
+             * @default Movies
+             */
+            movies_dir: string;
+            /**
+             * Series Dir
+             * @default Shows
+             */
+            series_dir: string;
+            /**
+             * Movie Dir Template
+             * @default {title} ({year})
+             */
+            movie_dir_template: string;
+            /**
+             * Movie File Template
+             * @default {title} ({year}) - {source}-{resolution}
+             */
+            movie_file_template: string;
+            /**
+             * Series Dir Template
+             * @default {title} ({year})/Season {season:02d}
+             */
+            series_dir_template: string;
+            /**
+             * Series File Template
+             * @default {title} - S{season:02d}E{episode:02d}
+             */
+            series_file_template: string;
+            /**
+             * Include Tmdb Id
+             * @default false
+             */
+            include_tmdb_id: boolean;
+            /**
+             * On Conflict
+             * @default review
+             * @enum {string}
+             */
+            on_conflict: "review" | "overwrite" | "keep_both";
+            /**
+             * Write Nfo
+             * @default false
+             */
+            write_nfo: boolean;
+            /**
+             * File Mode
+             * @default 436
+             */
+            file_mode: number;
+            /**
+             * Dir Mode
+             * @default 509
+             */
+            dir_mode: number;
+        };
+        /** MediaFileOut */
+        MediaFileOut: {
+            /** Id */
+            id: number;
+            /** Path */
+            path: string;
+            /** Role */
+            role: string;
+            /** Size Bytes */
+            size_bytes: number | null;
+            /** Duration Seconds */
+            duration_seconds: number | null;
+            /** Video Codec */
+            video_codec: string | null;
+            /** Audio Codec */
+            audio_codec: string | null;
+            /** Width */
+            width: number | null;
+            /** Height */
+            height: number | null;
+            /** Language */
+            language: string | null;
+            /** Is Forced */
+            is_forced: boolean;
+        };
+        /**
+         * MediaKind
+         * @enum {string}
+         */
+        MediaKind: "movie" | "series" | "music" | "other";
+        /** MetadataCandidate */
+        MetadataCandidate: {
+            /** Tmdb Id */
+            tmdb_id?: number | null;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /** Year */
+            year?: number | null;
+            /** Poster Url */
+            poster_url?: string | null;
+            /**
+             * Confidence
+             * @default 0
+             */
+            confidence: number;
+        };
+        /** MetadataDetail */
+        MetadataDetail: {
+            /** Tmdb Id */
+            tmdb_id: number;
+            /** Title */
+            title: string;
+            /** Year */
+            year: number | null;
+            /** Poster Url */
+            poster_url: string | null;
+            /** Overview */
+            overview: string | null;
+        };
+        /** MetadataSearchResponse */
+        MetadataSearchResponse: {
+            /** Items */
+            items: components["schemas"]["MetadataSearchResult"][];
+        };
+        /** MetadataSearchResult */
+        MetadataSearchResult: {
+            /** Tmdb Id */
+            tmdb_id: number;
+            /** Title */
+            title: string;
+            /** Year */
+            year: number | null;
+            /** Poster Url */
+            poster_url: string | null;
+            media_kind: components["schemas"]["MediaKind"];
+        };
+        /** NotificationConfig */
+        NotificationConfig: {
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /** Webhook Url */
+            webhook_url?: string | null;
+            /**
+             * Notify On
+             * @default [
+             *       "needs_review",
+             *       "completed",
+             *       "failed",
+             *       "system_warning"
+             *     ]
+             */
+            notify_on: ("needs_review" | "completed" | "failed" | "system_warning")[];
+        };
+        /** Page[EventOut] */
+        Page_EventOut_: {
+            /** Items */
+            items: components["schemas"]["EventOut"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** Page[JobSummary] */
+        Page_JobSummary_: {
+            /** Items */
+            items: components["schemas"]["JobSummary"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** PresetOut */
+        PresetOut: {
+            /** Name */
+            name: string;
+            /** Builtin */
+            builtin: boolean;
+        };
+        /** QueueReorderRequest */
+        QueueReorderRequest: {
+            /** Job Ids */
+            job_ids: number[];
+        };
+        /** QueueResponse */
+        QueueResponse: {
+            /** Items */
+            items: components["schemas"]["JobSummary"][];
+        };
+        /** RipConfig */
+        RipConfig: {
+            /**
+             * Backend
+             * @default makemkv
+             * @enum {string}
+             */
+            backend: "makemkv" | "handbrake";
+            /**
+             * Min Title Seconds
+             * @default 900
+             */
+            min_title_seconds: number;
+            /**
+             * Max Title Seconds
+             * @default 21600
+             */
+            max_title_seconds: number;
+            /**
+             * Title Selection
+             * @default longest
+             * @enum {string}
+             */
+            title_selection: "longest" | "all" | "ask";
+            /**
+             * Rip Extras
+             * @default false
+             */
+            rip_extras: boolean;
+            /**
+             * Keep Raw After Transcode
+             * @default false
+             */
+            keep_raw_after_transcode: boolean;
+        };
+        /** RuntimeConfig */
+        RuntimeConfig: {
+            /**
+             * @default {
+             *       "backend": "makemkv",
+             *       "min_title_seconds": 900,
+             *       "max_title_seconds": 21600,
+             *       "title_selection": "longest",
+             *       "rip_extras": false,
+             *       "keep_raw_after_transcode": false
+             *     }
+             */
+            rip: components["schemas"]["RipConfig"];
+            /**
+             * @default {
+             *       "enabled": true,
+             *       "preset_movie": "Spindle 1080p H.265",
+             *       "preset_uhd": "Spindle 2160p H.265 10-bit",
+             *       "hardware_encoder": "auto",
+             *       "quality": 22,
+             *       "audio_langs": [
+             *         "deu",
+             *         "eng"
+             *       ],
+             *       "keep_original_audio": true,
+             *       "workers": 1
+             *     }
+             */
+            transcode: components["schemas"]["TranscodeConfig"];
+            /**
+             * @default {
+             *       "enabled": true,
+             *       "langs": [
+             *         "deu",
+             *         "eng"
+             *       ],
+             *       "keep_forced_from_disc": true,
+             *       "external_provider": "opensubtitles",
+             *       "hearing_impaired": "exclude"
+             *     }
+             */
+            subtitles: components["schemas"]["SubtitleConfig"];
+            /**
+             * @default {
+             *       "movies_dir": "Movies",
+             *       "series_dir": "Shows",
+             *       "movie_dir_template": "{title} ({year})",
+             *       "movie_file_template": "{title} ({year}) - {source}-{resolution}",
+             *       "series_dir_template": "{title} ({year})/Season {season:02d}",
+             *       "series_file_template": "{title} - S{season:02d}E{episode:02d}",
+             *       "include_tmdb_id": false,
+             *       "on_conflict": "review",
+             *       "write_nfo": false,
+             *       "file_mode": 436,
+             *       "dir_mode": 509
+             *     }
+             */
+            library: components["schemas"]["LibraryConfig"];
+            /**
+             * @default {
+             *       "auto_start": true,
+             *       "auto_eject": true,
+             *       "identify_confidence_threshold": 0.75,
+             *       "min_free_bytes": 85899345920,
+             *       "completed_retention_days": 7,
+             *       "max_retries": 2
+             *     }
+             */
+            behaviour: components["schemas"]["BehaviourConfig"];
+            /**
+             * @default {
+             *       "enabled": false,
+             *       "notify_on": [
+             *         "needs_review",
+             *         "completed",
+             *         "failed",
+             *         "system_warning"
+             *       ]
+             *     }
+             */
+            notifications: components["schemas"]["NotificationConfig"];
+        };
+        /** SettingsTestResult */
+        SettingsTestResult: {
+            /** Ok */
+            ok: boolean;
+            /** Message */
+            message: string;
+            /** Latency Ms */
+            latency_ms?: number | null;
+        };
+        /** SubtitleConfig */
+        SubtitleConfig: {
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Langs
+             * @default [
+             *       "deu",
+             *       "eng"
+             *     ]
+             */
+            langs: string[];
+            /**
+             * Keep Forced From Disc
+             * @default true
+             */
+            keep_forced_from_disc: boolean;
+            /**
+             * External Provider
+             * @default opensubtitles
+             * @enum {string}
+             */
+            external_provider: "opensubtitles" | "none";
+            /**
+             * Hearing Impaired
+             * @default exclude
+             * @enum {string}
+             */
+            hearing_impaired: "include" | "exclude" | "only";
+        };
         /** SystemInfo */
         SystemInfo: {
-            /** Status */
-            status: string;
             /** Version */
             version: string;
             /** Uptime Seconds */
             uptime_seconds: number;
+            /**
+             * Backends
+             * @default {}
+             */
+            backends: {
+                [key: string]: components["schemas"]["BackendStatus"];
+            };
             /**
              * Encoders
              * @default []
              */
             encoders: string[];
             /**
-             * Backends
+             * Disk
              * @default []
              */
-            backends: string[];
+            disk: components["schemas"]["DiskUsage"][];
             /**
-             * Disk Space
+             * Warnings
              * @default []
              */
-            disk_space: {
-                [key: string]: unknown;
-            }[];
+            warnings: components["schemas"]["SystemWarning"][];
+        };
+        /** SystemWarning */
+        SystemWarning: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+        };
+        /**
+         * TaskKind
+         * @description Also the pipeline stage order — the dispatcher iterates this enum.
+         * @enum {string}
+         */
+        TaskKind: "identify" | "rip" | "transcode" | "subtitles" | "organize" | "notify";
+        /** TaskOut */
+        TaskOut: {
+            kind: components["schemas"]["TaskKind"];
+            status: components["schemas"]["TaskStatus"];
+            /** Progress */
+            progress: number;
+            /** Eta Seconds */
+            eta_seconds: number | null;
+            /** Message */
+            message: string | null;
+            /** Error */
+            error: string | null;
+            /** Attempts */
+            attempts: number;
+            /** Started At */
+            started_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+        };
+        /**
+         * TaskStatus
+         * @enum {string}
+         */
+        TaskStatus: "pending" | "running" | "succeeded" | "failed" | "skipped";
+        /** TranscodeConfig */
+        TranscodeConfig: {
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Preset Movie
+             * @default Spindle 1080p H.265
+             */
+            preset_movie: string;
+            /**
+             * Preset Uhd
+             * @default Spindle 2160p H.265 10-bit
+             */
+            preset_uhd: string;
+            /**
+             * Hardware Encoder
+             * @default auto
+             * @enum {string}
+             */
+            hardware_encoder: "auto" | "none" | "qsv" | "nvenc" | "vaapi";
+            /**
+             * Quality
+             * @default 22
+             */
+            quality: number;
+            /**
+             * Audio Langs
+             * @default [
+             *       "deu",
+             *       "eng"
+             *     ]
+             */
+            audio_langs: string[];
+            /**
+             * Keep Original Audio
+             * @default true
+             */
+            keep_original_audio: boolean;
+            /**
+             * Workers
+             * @default 1
+             */
+            workers: number;
+        };
+        /** ValidationError */
+        ValidationError: {
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
         };
     };
     responses: never;
@@ -86,7 +1125,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    health_api_v1_system_health_get: {
+    get_health: {
         parameters: {
             query?: never;
             header?: never;
@@ -106,7 +1145,7 @@ export interface operations {
             };
         };
     };
-    system_info_api_v1_system_get: {
+    get_system_info: {
         parameters: {
             query?: never;
             header?: never;
@@ -122,6 +1161,728 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SystemInfo"];
+                };
+            };
+        };
+    };
+    list_drives: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DrivesResponse"];
+                };
+            };
+        };
+    };
+    eject_drive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                drive_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rescan_drive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                drive_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriveOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_drive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                drive_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DrivePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriveOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_jobs: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["JobStatus"][] | null;
+                media_kind?: components["schemas"]["MediaKind"] | null;
+                q?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_JobSummary_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_job: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_job: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_job: {
+        parameters: {
+            query?: {
+                purge_files?: boolean;
+            };
+            header?: never;
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_job: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_job: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["JobRetryRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_job: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pause_job: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_job: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_job_log: {
+        parameters: {
+            query?: {
+                tail?: number | null;
+            };
+            header?: never;
+            path: {
+                job_id: number;
+                kind: components["schemas"]["TaskKind"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_queue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueResponse"];
+                };
+            };
+        };
+    };
+    reorder_queue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QueueReorderRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuntimeConfig"];
+                };
+            };
+        };
+    };
+    update_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuntimeConfig"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_presets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresetOut"][];
+                };
+            };
+        };
+    };
+    test_settings_target: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                target: "tmdb" | "opensubtitles" | "jellyfin" | "notify";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsTestResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_metadata: {
+        parameters: {
+            query: {
+                q: string;
+                media_kind?: components["schemas"]["MediaKind"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetadataSearchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_metadata: {
+        parameters: {
+            query?: {
+                media_kind?: components["schemas"]["MediaKind"];
+            };
+            header?: never;
+            path: {
+                tmdb_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetadataDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stream_events: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    list_events: {
+        parameters: {
+            query?: {
+                job_id?: number | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_EventOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -34,3 +34,10 @@ class NotFoundError(SpindleError):
 
 class ConflictError(SpindleError):
     status_code = 409
+
+
+class ValidationFailedError(SpindleError):
+    """A value that isn't malformed input but doesn't satisfy an internal
+    contract — e.g. an unrecognized language code (`utils/lang.py`)."""
+
+    status_code = 422

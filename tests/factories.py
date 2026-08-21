@@ -52,3 +52,19 @@ async def make_task(session: AsyncSession, **overrides: Any) -> Task:
     await session.commit()
     await session.refresh(task)
     return task
+
+
+async def make_job_with_tasks(session: AsyncSession, **overrides: Any) -> tuple[Job, list[Task]]:
+    """A `Job` plus one `Task` per `TaskKind`, in pipeline order — the shape
+    every real job has (`DriveWatcher`/`POST /jobs` both create tasks this
+    way), for routes/tests that read `JobSummary.progress`/`current_task`."""
+    job = await make_job(session, **overrides)
+    tasks = []
+    for kind in TaskKind:
+        task = Task(job_id=job.id, kind=kind, status=TaskStatus.PENDING)
+        session.add(task)
+        tasks.append(task)
+    await session.commit()
+    for task in tasks:
+        await session.refresh(task)
+    return job, tasks

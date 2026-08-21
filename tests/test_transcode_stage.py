@@ -9,9 +9,15 @@ import pytest
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from spindle.adapters.ffmpeg import MediaProbe
+from spindle.adapters.ffmpeg import MediaProbe, SubtitleStreamInfo
 from spindle.adapters.handbrake import EncodeProgress, HandBrakeError
-from spindle.config import BehaviourConfig, RipConfig, RuntimeConfig, TranscodeConfig
+from spindle.config import (
+    BehaviourConfig,
+    RipConfig,
+    RuntimeConfig,
+    SubtitleConfig,
+    TranscodeConfig,
+)
 from spindle.models.disc import DiscType
 from spindle.models.job import JobStatus, MediaKind
 from spindle.models.task import TaskStatus
@@ -26,6 +32,7 @@ class _FakeHandBrake:
     def __init__(self, *, encoders: tuple[str, ...] = ("x265",)) -> None:
         self.encoders = encoders
         self.encode_calls: list[Path] = []
+        self.encode_overrides: list[Any] = []
         self.cancel_calls: list[int] = []
         self.fail_on: str | None = None
         self.content: dict[str, bytes] = {}
@@ -45,6 +52,7 @@ class _FakeHandBrake:
         handle: int | None = None,
     ) -> None:
         self.encode_calls.append(src)
+        self.encode_overrides.append(overrides)
         if self.fail_on == src.name:
             raise HandBrakeError("simulated encode failure")
         if on_progress is not None:
@@ -60,10 +68,15 @@ class _FakeHandBrake:
 
 class _FakeFfmpeg:
     def __init__(
-        self, *, durations: dict[str, float] | None = None, always_valid: bool = False
+        self,
+        *,
+        durations: dict[str, float] | None = None,
+        always_valid: bool = False,
+        subtitle_streams: tuple[SubtitleStreamInfo, ...] = (),
     ) -> None:
         self.durations = durations or {}
         self.always_valid = always_valid
+        self.subtitle_streams = subtitle_streams
 
     async def probe(self, path: Path) -> MediaProbe | None:
         size_bytes = await asyncio.to_thread(_size_or_zero, path)
@@ -79,6 +92,7 @@ class _FakeFfmpeg:
             video_codec="hevc",
             width=1920,
             height=1080,
+            subtitle_streams=self.subtitle_streams,
         )
 
 
@@ -86,10 +100,16 @@ def _size_or_zero(path: Path) -> int:
     return path.stat().st_size if path.is_file() else 0
 
 
-def _config(*, min_free_bytes: int = 0, **transcode_overrides: object) -> RuntimeConfig:
+def _config(
+    *,
+    min_free_bytes: int = 0,
+    keep_forced_from_disc: bool = True,
+    **transcode_overrides: object,
+) -> RuntimeConfig:
     return RuntimeConfig(
         behaviour=BehaviourConfig(min_free_bytes=min_free_bytes),
         transcode=TranscodeConfig(**transcode_overrides),  # type: ignore[arg-type]
+        subtitles=SubtitleConfig(keep_forced_from_disc=keep_forced_from_disc),  # type: ignore[arg-type]
     )
 
 
@@ -157,6 +177,63 @@ async def test_run_transcodes_a_five_minute_source_and_verifies_the_output(
     assert progress_events
     assert progress_events[-1].data["progress"] == 1.0
     assert "x265" in progress_events[-1].data["message"]
+
+
+async def test_run_passes_forced_subtitle_overrides_to_handbrake_by_default(
+    session: AsyncSession, tmp_path: Path
+) -> None:
+    ctx, _events = await _make_context(session, tmp_path, config=_config())
+    _write_source(tmp_path, ctx.job.id, "title.mkv")
+    handbrake = _FakeHandBrake()
+    ffmpeg = _FakeFfmpeg(durations={"title.mkv": 300.0})
+    stage = TranscodeStage(handbrake, ffmpeg)  # type: ignore[arg-type]
+
+    await stage.run(ctx)
+
+    assert "--all-subtitles" in handbrake.encode_overrides[0]
+    assert "--subtitle-forced" in handbrake.encode_overrides[0]
+    assert "--subtitle-burned=none" in handbrake.encode_overrides[0]
+
+
+async def test_run_omits_forced_subtitle_overrides_when_disabled_in_config(
+    session: AsyncSession, tmp_path: Path
+) -> None:
+    ctx, _events = await _make_context(
+        session, tmp_path, config=_config(keep_forced_from_disc=False)
+    )
+    _write_source(tmp_path, ctx.job.id, "title.mkv")
+    handbrake = _FakeHandBrake()
+    ffmpeg = _FakeFfmpeg(durations={"title.mkv": 300.0})
+    stage = TranscodeStage(handbrake, ffmpeg)  # type: ignore[arg-type]
+
+    await stage.run(ctx)
+
+    assert "--subtitle-forced" not in handbrake.encode_overrides[0]
+
+
+async def test_run_retains_a_forced_german_subtitle_track_flagged_forced(
+    session: AsyncSession, tmp_path: Path
+) -> None:
+    ctx, _events = await _make_context(session, tmp_path, config=_config())
+    _write_source(tmp_path, ctx.job.id, "title.mkv")
+    handbrake = _FakeHandBrake()
+    ffmpeg = _FakeFfmpeg(
+        durations={"title.mkv": 300.0},
+        subtitle_streams=(
+            SubtitleStreamInfo(
+                index=2, codec="hdmv_pgs_subtitle", language="deu", is_forced=True, is_default=False
+            ),
+        ),
+    )
+    stage = TranscodeStage(handbrake, ffmpeg)  # type: ignore[arg-type]
+
+    result = await stage.run(ctx)
+
+    assert result.status == TaskStatus.SUCCEEDED
+    subtitle_entries = [m for m in result.meta["media_files"] if m["role"] == "subtitle"]
+    assert len(subtitle_entries) == 1
+    assert subtitle_entries[0]["language"] == "deu"
+    assert subtitle_entries[0]["is_forced"] is True
 
 
 async def test_run_keeps_the_raw_dir_when_configured(session: AsyncSession, tmp_path: Path) -> None:

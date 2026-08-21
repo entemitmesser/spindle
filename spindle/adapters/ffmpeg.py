@@ -1,7 +1,9 @@
 """`ffprobe`-based output verification, per architecture.md §7.
 
-Only `probe()` exists so far (rip/transcode verification); subtitle muxing and
-deeper stream inspection land in phase 5 once they're needed.
+`probe()` covers rip/transcode verification (phase 3/4) and now also lists
+embedded subtitle streams (phase 5 task 1), so callers can record forced
+tracks and decide which languages still need an external subtitle without a
+second `ffprobe` invocation.
 """
 
 from __future__ import annotations
@@ -21,6 +23,15 @@ CreateSubprocess = Callable[..., Awaitable[asyncio.subprocess.Process]]
 
 
 @dataclass(frozen=True)
+class SubtitleStreamInfo:
+    index: int
+    codec: str | None
+    language: str | None
+    is_forced: bool
+    is_default: bool
+
+
+@dataclass(frozen=True)
 class MediaProbe:
     duration_seconds: float | None
     size_bytes: int
@@ -28,6 +39,8 @@ class MediaProbe:
     video_codec: str | None
     width: int | None
     height: int | None
+    subtitle_streams: tuple[SubtitleStreamInfo, ...] = ()
+    audio_codec: str | None = None
 
 
 class FfmpegAdapter:
@@ -88,6 +101,18 @@ def _parse_probe(payload: dict[str, Any], *, size_bytes: int) -> MediaProbe:
 
     streams = payload.get("streams") or []
     video = next((s for s in streams if s.get("codec_type") == "video"), None)
+    audio = next((s for s in streams if s.get("codec_type") == "audio"), None)
+    subtitle_streams = tuple(
+        SubtitleStreamInfo(
+            index=int(s.get("index", i)),
+            codec=s.get("codec_name"),
+            language=(s.get("tags") or {}).get("language"),
+            is_forced=bool((s.get("disposition") or {}).get("forced")),
+            is_default=bool((s.get("disposition") or {}).get("default")),
+        )
+        for i, s in enumerate(streams)
+        if s.get("codec_type") == "subtitle"
+    )
 
     return MediaProbe(
         duration_seconds=duration_seconds,
@@ -96,4 +121,6 @@ def _parse_probe(payload: dict[str, Any], *, size_bytes: int) -> MediaProbe:
         video_codec=video.get("codec_name") if video else None,
         width=video.get("width") if video else None,
         height=video.get("height") if video else None,
+        subtitle_streams=subtitle_streams,
+        audio_codec=audio.get("codec_name") if audio else None,
     )

@@ -1,8 +1,19 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
-from spindle.utils.naming import DiscLabelHints, normalize_disc_label
+from spindle.errors import ValidationFailedError
+from spindle.utils.naming import (
+    DiscLabelHints,
+    normalize_disc_label,
+    render_path,
+    render_template,
+    resolve_destination,
+    sanitize_segment,
+    validate_template,
+)
 
 # (raw disc label, expected clean title, expected hints)
 LABEL_FIXTURES: list[tuple[str, str, DiscLabelHints]] = [
@@ -96,3 +107,159 @@ def test_normalize_disc_label(
     title, hints = normalize_disc_label(label)
     assert title == expected_title
     assert hints == expected_hints
+
+
+# -- render_template / validate_template -------------------------------------
+
+
+def test_render_template_substitutes_known_variables() -> None:
+    result = render_template(
+        "{title} ({year}) - {source}-{resolution}",
+        {
+            "title": "Amelie",
+            "year": 2001,
+            "source": "Bluray",
+            "resolution": "1080p",
+        },
+    )
+    assert result == "Amelie (2001) - Bluray-1080p"
+
+
+def test_render_template_supports_zero_padded_format_specs() -> None:
+    result = render_template(
+        "{title} - S{season:02d}E{episode:02d}",
+        {"title": "The Wire", "season": 1, "episode": 3},
+    )
+    assert result == "The Wire - S01E03"
+
+
+def test_render_template_rejects_unknown_variable() -> None:
+    with pytest.raises(ValidationFailedError):
+        render_template("{title} {nonexistent}", {"title": "X", "nonexistent": "Y"})
+
+
+def test_render_template_rejects_attribute_access() -> None:
+    with pytest.raises(ValidationFailedError):
+        render_template("{title.upper}", {"title": "X"})
+
+
+def test_render_template_rejects_index_access() -> None:
+    with pytest.raises(ValidationFailedError):
+        render_template("{title[0]}", {"title": "X"})
+
+
+def test_render_template_rejects_positional_fields() -> None:
+    with pytest.raises(ValidationFailedError):
+        render_template("{} {title}", {"title": "X"})
+
+
+def test_render_template_rejects_conversions() -> None:
+    with pytest.raises(ValidationFailedError):
+        render_template("{title!r}", {"title": "X"})
+
+
+def test_render_template_raises_when_a_referenced_variable_has_no_value() -> None:
+    with pytest.raises(ValidationFailedError):
+        render_template("{title} {season}", {"title": "X"})
+
+
+def test_validate_template_accepts_the_default_templates() -> None:
+    validate_template("{title} ({year})")
+    validate_template("{title} ({year}) - {source}-{resolution}")
+    validate_template("{title} ({year})/Season {season:02d}")
+    validate_template("{title} - S{season:02d}E{episode:02d}")
+
+
+def test_validate_template_catches_an_unknown_variable_without_a_real_job() -> None:
+    # This is the phase-06 acceptance criterion: an unknown variable is
+    # caught at settings-save time (this call), not later at organize time
+    # against a real job's (possibly partial) variable dict.
+    with pytest.raises(ValidationFailedError):
+        validate_template("{title} ({yeaar})")
+
+
+def test_validate_template_catches_a_bad_format_spec() -> None:
+    with pytest.raises(ValidationFailedError):
+        validate_template("{title:02d}")
+
+
+# -- sanitize_segment ----------------------------------------------------
+
+
+def test_sanitize_segment_strips_illegal_characters() -> None:
+    assert sanitize_segment('Mission: Impossible <2>? "Ghost" | Protocol*') == (
+        "Mission Impossible 2 Ghost Protocol"
+    )
+
+
+def test_sanitize_segment_preserves_umlauts() -> None:
+    assert sanitize_segment("Das Böse Erwacht") == "Das Böse Erwacht"
+
+
+def test_sanitize_segment_collapses_whitespace() -> None:
+    assert sanitize_segment("Amelie   From    Montmartre") == "Amelie From Montmartre"
+
+
+def test_sanitize_segment_strips_trailing_dots_and_spaces() -> None:
+    assert sanitize_segment("Mr. Robot. . ") == "Mr. Robot"
+
+
+def test_sanitize_segment_truncates_a_very_long_title_on_a_word_boundary() -> None:
+    long_title = "Word " * 60  # 300 chars
+    result = sanitize_segment(long_title)
+    assert len(result) <= 180
+    assert not result.endswith(" ")
+    assert result == long_title[: len(result)].rstrip()
+
+
+def test_sanitize_segment_removes_slashes_so_traversal_cannot_hide_in_one_segment() -> None:
+    assert "/" not in sanitize_segment("../../etc")
+    assert "\\" not in sanitize_segment("..\\..\\etc")
+
+
+# -- render_path -----------------------------------------------------------
+
+
+def test_render_path_splits_on_slash_into_separate_segments() -> None:
+    path = render_path(
+        "{title} ({year})/Season {season:02d}", {"title": "The Wire", "year": 2002, "season": 1}
+    )
+    assert path == Path("The Wire (2002)", "Season 01")
+
+
+def test_render_path_sanitizes_each_segment_independently() -> None:
+    path = render_path("{title}/{source}", {"title": 'Se7en: "Redux"', "source": "Bluray"})
+    assert path == Path("Se7en Redux", "Bluray")
+
+
+# -- resolve_destination (path traversal) -----------------------------------
+
+
+def test_resolve_destination_joins_a_well_behaved_relative_path(tmp_path: Path) -> None:
+    result = resolve_destination(tmp_path, Path("Movies", "Amelie (2001)"))
+    assert result == (tmp_path / "Movies" / "Amelie (2001)").resolve()
+
+
+def test_resolve_destination_rejects_a_traversal_that_escapes_the_base_dir(
+    tmp_path: Path,
+) -> None:
+    # A raw `..` component bypassing `sanitize_segment` (the primary
+    # defense) must still be caught here -- architecture.md §8's backstop.
+    with pytest.raises(ValidationFailedError):
+        resolve_destination(tmp_path, Path("..", "..", "etc"))
+
+
+def test_resolve_destination_rejects_an_absolute_path_escaping_the_base_dir(
+    tmp_path: Path,
+) -> None:
+    escape_root = tmp_path.parent / "elsewhere"
+    with pytest.raises(ValidationFailedError):
+        resolve_destination(tmp_path, escape_root)
+
+
+def test_title_of_dotdot_etc_cannot_escape_library_dir_end_to_end(tmp_path: Path) -> None:
+    """The phase-06 acceptance criterion, exercised through the whole
+    render_path -> resolve_destination pipeline rather than a raw Path."""
+    relative = render_path("{title}", {"title": "../../etc"})
+    result = resolve_destination(tmp_path, relative)
+    assert tmp_path.resolve() in result.parents or result == tmp_path.resolve()

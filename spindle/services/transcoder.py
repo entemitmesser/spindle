@@ -63,10 +63,17 @@ def remap_quality(encoder: str, rf: int) -> int:
     return rf + _QUALITY_OFFSETS.get(encoder, 0)
 
 
-def build_overrides(config: TranscodeConfig, encoder: str, quality: int) -> list[str]:
+def build_overrides(
+    config: TranscodeConfig, encoder: str, quality: int, *, keep_forced_subs: bool = True
+) -> list[str]:
     overrides = ["--encoder", encoder, "--quality", str(quality)]
     langs = list(dict.fromkeys(config.audio_langs))
     if langs:
         overrides += ["--audio-lang-list", ",".join(langs)]
     overrides.append("--all-audio" if config.keep_original_audio else "--first-audio")
+    if keep_forced_subs:
+        # Keep disc subtitle tracks flagged forced as soft tracks rather than
+        # burning them in — burned-in subs are irreversible and Jellyfin
+        # can't turn them off (phase-05-metadata-subtitles.md task 1).
+        overrides += ["--all-subtitles", "--subtitle-forced", "--subtitle-burned=none"]
     return overrides

@@ -89,6 +89,9 @@ def test_build_overrides_includes_encoder_quality_and_audio_langs() -> None:
         "--audio-lang-list",
         "deu,eng",
         "--all-audio",
+        "--all-subtitles",
+        "--subtitle-forced",
+        "--subtitle-burned=none",
     ]
 
 
@@ -97,4 +100,14 @@ def test_build_overrides_uses_first_audio_when_original_audio_not_kept() -> None
 
     overrides = build_overrides(config, "x265", 22)
 
-    assert overrides[-1] == "--first-audio"
+    assert "--first-audio" in overrides
+
+
+def test_build_overrides_omits_subtitle_flags_when_forced_subs_not_kept() -> None:
+    config = _config(audio_langs=["eng"], keep_original_audio=True)
+
+    overrides = build_overrides(config, "x265", 22, keep_forced_subs=False)
+
+    assert "--subtitle-forced" not in overrides
+    assert "--all-subtitles" not in overrides
+    assert overrides[-1] == "--all-audio"

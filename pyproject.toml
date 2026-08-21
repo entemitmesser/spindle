@@ -20,6 +20,8 @@ dependencies = [
   "structlog>=24.4",
   "typer>=0.13",
   "rapidfuzz>=3.10",
+  "srt>=3.5.3",
+  "charset-normalizer>=3.5.1",
 ]
 
 [project.scripts]
@@ -63,6 +65,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "discid.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "srt.*"
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
