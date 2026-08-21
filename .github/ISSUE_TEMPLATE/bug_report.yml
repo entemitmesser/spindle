@@ -1,0 +1,50 @@
+name: Bug report
+description: Something in Spindle isn't working right
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: false
+
+  - type: textarea
+    id: system-info
+    attributes:
+      label: "`GET /api/v1/system` output"
+      description: >
+        Open http://<your-host>:8478/api/v1/system (or `curl` it) and paste the JSON
+        here — it has the Spindle version, detected backends/encoders, disk space, and
+        any recent warnings, and is almost always the first thing needed to diagnose an
+        issue.
+      render: json
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: >
+        `docker compose logs spindle`, or the specific job's log from the UI
+        (Job → Logs tab) if this is about a specific rip/transcode.
+      render: shell
+    validations:
+      required: false
+
+  - type: input
+    id: deployment
+    attributes:
+      label: Deployment
+      description: Docker Compose / plain `docker run` / from source, and the host OS.
+    validations:
+      required: false

@@ -36,6 +36,14 @@ class ConflictError(SpindleError):
     status_code = 409
 
 
+class UnauthorizedError(SpindleError):
+    status_code = 401
+
+
+class RateLimitedError(SpindleError):
+    status_code = 429
+
+
 class ValidationFailedError(SpindleError):
     """A value that isn't malformed input but doesn't satisfy an internal
     contract — e.g. an unrecognized language code (`utils/lang.py`)."""

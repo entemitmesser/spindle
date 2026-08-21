@@ -22,10 +22,11 @@ dependencies = [
   "rapidfuzz>=3.10",
   "srt>=3.5.3",
   "charset-normalizer>=3.5.1",
+  "argon2-cffi>=23.1",
 ]
 
 [project.scripts]
-spindle = "spindle.main:main"
+spindle = "spindle.cli:main"
 
 [tool.hatch.version]
 path = "spindle/__about__.py"
@@ -53,6 +54,10 @@ select = ["E", "F", "I", "N", "UP", "B", "ASYNC", "S", "C4", "RET", "SIM"]
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101"]
 
+[tool.ruff.lint.flake8-bugbear]
+# typer's own API is `Option()`/`Argument()` calls as parameter defaults.
+extend-immutable-calls = ["typer.Option", "typer.Argument"]
+
 [tool.mypy]
 python_version = "3.12"
 platform = "linux"  # the app only ever runs in the Linux container; dev machines vary
@@ -69,6 +74,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "srt.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "argon2.*"
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

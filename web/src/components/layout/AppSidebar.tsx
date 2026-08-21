@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Disc3,
@@ -13,6 +14,8 @@ import { useEffect, useState } from "react";
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { api } from "@/lib/api";
+import { queryKeys } from "@/lib/query-keys";
 import { useSidebar } from "@/providers/SidebarProvider";
 import { cn } from "@/lib/utils";
 
@@ -82,6 +85,12 @@ function SidebarNav({ expanded, onNavigate }: { expanded: boolean; onNavigate?: 
   );
 }
 
+function VersionFooter({ expanded }: { expanded: boolean }) {
+  const { data } = useQuery({ queryKey: queryKeys.system.info(), queryFn: api.system });
+  if (!data || !expanded) return null;
+  return <p className="text-muted-foreground px-3 pb-1 text-xs">v{data.version}</p>;
+}
+
 export function AppSidebar() {
   const [pinned, setPinned] = useState(() => {
     try {
@@ -113,6 +122,7 @@ export function AppSidebar() {
         )}
       >
         <SidebarNav expanded={expanded} />
+        <VersionFooter expanded={expanded} />
         <div className={cn("flex", expanded ? "justify-end px-3" : "justify-center px-2")}>
           <button
             type="button"

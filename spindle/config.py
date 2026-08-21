@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     jellyfin_url: str | None = None
     jellyfin_token: SecretStr | None = None
     makemkv_key: SecretStr | None = None
+    auth_enabled: bool = False
+    secret_key: SecretStr | None = None
+    metrics_enabled: bool = False
 
     @model_validator(mode="after")
     def _ensure_dirs_writable(self) -> Settings:
@@ -56,6 +59,7 @@ class Settings(BaseSettings):
             self.opensubtitles_api_key,
             self.jellyfin_token,
             self.makemkv_key,
+            self.secret_key,
         )
         return [s.get_secret_value() for s in secrets if s is not None]
 
@@ -134,6 +138,10 @@ class BehaviourConfig(_RuntimeModel):
     min_free_bytes: int = 80 * 1024**3
     completed_retention_days: int = 7
     max_retries: int = 2
+    # 0 disables the watchdog. Based on progress *events*, not wall clock
+    # (phase-09-hardening.md task 2) -- a long UHD transcode that's still
+    # emitting `task.progress` never trips this, only a genuinely stuck one.
+    stall_timeout_minutes: int = 45
 
 
 class NotificationConfig(_RuntimeModel):

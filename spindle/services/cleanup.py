@@ -29,6 +29,7 @@ from spindle.utils import fsutil
 logger = structlog.get_logger(__name__)
 
 _DEFAULT_INTERVAL_SECONDS = 3600.0
+_DISK_WATCH_INTERVAL_SECONDS = 60.0
 _WORK_SUBDIRS = ("raw", "transcode")
 
 
@@ -71,6 +72,21 @@ class CleanupService:
                 await self.run_once()
             except Exception:  # noqa: BLE001 -- cleanup must never kill the loop
                 logger.exception("cleanup.run_failed")
+
+    async def run_disk_watch_loop(
+        self, *, interval_seconds: float = _DISK_WATCH_INTERVAL_SECONDS
+    ) -> None:
+        """The disk-space monitor task from phase-09-hardening.md task 2, on
+        its own faster cadence -- `run_loop`'s hourly sweep also checks disk
+        space (`run_once` -> `_check_disk_space`), but a full-volume disk
+        should surface a warning well inside an hour."""
+        while True:
+            await asyncio.sleep(interval_seconds)
+            try:
+                config = await self._config_store.get()
+                await self._check_disk_space(config.behaviour.min_free_bytes)
+            except Exception:  # noqa: BLE001 -- must never kill the loop
+                logger.exception("cleanup.disk_watch_failed")
 
     # -- internals -----------------------------------------------------
 

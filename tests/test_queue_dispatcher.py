@@ -16,6 +16,7 @@ from spindle.models.task import Task, TaskKind, TaskStatus
 from spindle.models.types import utc_now
 from spindle.pipeline.context import JobContext
 from spindle.pipeline.stages import StageResult
+from spindle.services import queue as queue_module
 from spindle.services.events import EventBus
 from spindle.services.queue import (
     Dispatcher,
@@ -500,3 +501,128 @@ async def test_a_failed_transcode_task_never_auto_retries_and_fails_the_job(
     # the job dropped out of (queued, running) -- a second poll must not touch it again
     await dispatcher.poll_once()
     assert stage.run_calls == [job.id]
+
+
+# -- watchdog (phase-09-hardening.md task 2) ---------------------------------
+
+
+async def test_watchdog_fails_a_stalled_task_and_cleans_up(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    event_bus: EventBus,
+    config_store: ConfigStore,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # 1 "minute" -> 0.2s of real time, so the test doesn't actually wait a minute.
+    monkeypatch.setattr(queue_module, "_SECONDS_PER_MINUTE", 0.2)
+    await config_store.update({"behaviour": {"stall_timeout_minutes": 1}})
+
+    stage = _FakeStage(TaskKind.TRANSCODE, gate=asyncio.Event())  # gate never set -> never returns
+    job, tasks = await _seed_job(session, kinds=[TaskKind.TRANSCODE])
+
+    await run_stage(
+        stage=stage,  # type: ignore[arg-type]
+        session_factory=session_factory,
+        event_bus=event_bus,
+        config_store=config_store,
+        work_dir=tmp_path,
+        data_dir=tmp_path,
+        job_id=job.id,
+        task_id=tasks[TaskKind.TRANSCODE].id,
+    )
+
+    async with session_factory() as s:
+        refreshed_task = await s.get(Task, tasks[TaskKind.TRANSCODE].id)
+        refreshed_job = await s.get(Job, job.id)
+    assert refreshed_task is not None
+    assert refreshed_task.status == TaskStatus.FAILED
+    assert refreshed_task.error is not None
+    assert "No progress" in refreshed_task.error
+    assert refreshed_job is not None
+    assert refreshed_job.status == JobStatus.FAILED
+    assert stage.cleanup_calls == [job.id]
+
+
+async def test_watchdog_never_fires_while_progress_keeps_arriving(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    event_bus: EventBus,
+    config_store: ConfigStore,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A slow-but-moving transcode (e.g. UHD) must never be a false positive
+    -- the watchdog is keyed off progress events, not wall clock."""
+    # A stall window shorter than the stage's *total* runtime, but longer than
+    # the gap between any two consecutive progress events -- if the watchdog
+    # were keyed off wall clock instead of progress, this would fail.
+    monkeypatch.setattr(queue_module, "_SECONDS_PER_MINUTE", 0.3)
+    await config_store.update({"behaviour": {"stall_timeout_minutes": 1}})
+
+    class _SlowButProgressingStage:
+        kind = TaskKind.TRANSCODE
+
+        async def can_skip(self, ctx: JobContext) -> bool:
+            return False
+
+        async def run(self, ctx: JobContext) -> StageResult:
+            for _ in range(5):
+                await asyncio.sleep(0.12)
+                await ctx.emit(
+                    queue_module.EventIn(
+                        type="task.progress", data={"kind": "transcode", "progress": 0.5}
+                    )
+                )
+            return StageResult(status=TaskStatus.SUCCEEDED)
+
+        async def cleanup(self, ctx: JobContext) -> None:
+            return None
+
+    job, tasks = await _seed_job(session, kinds=[TaskKind.TRANSCODE])
+
+    await run_stage(
+        stage=_SlowButProgressingStage(),  # type: ignore[arg-type]
+        session_factory=session_factory,
+        event_bus=event_bus,
+        config_store=config_store,
+        work_dir=tmp_path,
+        data_dir=tmp_path,
+        job_id=job.id,
+        task_id=tasks[TaskKind.TRANSCODE].id,
+    )
+
+    async with session_factory() as s:
+        refreshed_task = await s.get(Task, tasks[TaskKind.TRANSCODE].id)
+    assert refreshed_task is not None
+    assert refreshed_task.status == TaskStatus.SUCCEEDED
+
+
+async def test_dispatcher_stop_cleans_up_but_leaves_the_task_running_for_recovery(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    event_bus: EventBus,
+    config_store: ConfigStore,
+    tmp_path: Path,
+) -> None:
+    """A real shutdown (`Dispatcher.stop()`) is not a stall: `stage.cleanup`
+    still runs (so the subprocess doesn't leak), but the task is left
+    `running` in the DB rather than `failed` -- `recover_orphaned_tasks`
+    resets it to `pending` on the next boot instead of burning a retry."""
+    gate = asyncio.Event()
+    stage = _FakeStage(TaskKind.TRANSCODE, gate=gate)
+    dispatcher = _dispatcher(
+        {TaskKind.TRANSCODE: stage}, session_factory, event_bus, config_store, tmp_path
+    )
+    job, tasks = await _seed_job(session, kinds=[TaskKind.TRANSCODE])
+
+    await dispatcher.poll_once()
+    await _wait_until(lambda: job.id in stage.run_calls)
+
+    await dispatcher.stop(grace_period=2.0)
+
+    assert stage.cleanup_calls == [job.id]
+    async with session_factory() as s:
+        refreshed_task = await s.get(Task, tasks[TaskKind.TRANSCODE].id)
+    assert refreshed_task is not None
+    assert refreshed_task.status == TaskStatus.RUNNING

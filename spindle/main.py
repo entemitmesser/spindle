@@ -2,19 +2,20 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import secrets
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 import httpx
 import structlog
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -42,15 +43,24 @@ from spindle.pipeline.stages import (
     SubtitleStage,
     TranscodeStage,
 )
+from spindle.services.auth import (
+    SESSION_COOKIE_NAME,
+    SESSION_TTL_SECONDS,
+    AuthService,
+    LoginRateLimiter,
+)
 from spindle.services.cleanup import CleanupService
 from spindle.services.detector import DriveWatcher
 from spindle.services.events import EventBus
 from spindle.services.metadata import MetadataService
+from spindle.services.metrics import render_prometheus_metrics
 from spindle.services.notifier import NotificationService
 from spindle.services.queue import Dispatcher
+from spindle.services.startup_checks import run_startup_checks
 from spindle.utils.logging import configure_logging
 
 _HTTP_TIMEOUT = httpx.Timeout(connect=5.0, read=30.0, write=30.0, pool=5.0)
+_SECRET_KEY_FILE_MODE = 0o600
 
 logger = structlog.get_logger(__name__)
 
@@ -78,6 +88,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.http_client = http_client
     _build_adapters_and_services(app, settings, http_client)
 
+    secret_key = await asyncio.to_thread(_resolve_secret_key, settings)
+    app.state.auth = AuthService(session_factory, secret_key)
+    app.state.login_rate_limiter = LoginRateLimiter()
+
     cleanup_service = CleanupService(
         session_factory,
         event_bus,
@@ -87,6 +101,24 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     app.state.cleanup_service = cleanup_service
     cleanup_task = asyncio.create_task(cleanup_service.run_loop())
+    disk_watch_task = asyncio.create_task(cleanup_service.run_disk_watch_loop())
+
+    # Gated the same way as the Dispatcher/DriveWatcher below: tests build
+    # their own events and assert on them precisely (test_health.py's
+    # `warnings == []`, test_organize_stage.py's exact warning counts), so
+    # startup's own findings must not land in the same events table there.
+    if settings.run_background_workers:
+        runtime_config = await config_store.get()
+        await run_startup_checks(
+            event_bus=event_bus,
+            config=runtime_config,
+            library_dir=settings.library_dir,
+            makemkv=app.state.makemkv,
+            handbrake=app.state.handbrake,
+            mkvpropedit=app.state.mkvpropedit,
+            opensubtitles=app.state.opensubtitles,
+            jellyfin=app.state.jellyfin,
+        )
 
     dispatcher = Dispatcher(
         _build_stages(app),
@@ -104,7 +136,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     app.state.drive_watcher = drive_watcher
 
-    background_tasks: list[asyncio.Task[None]] = [cleanup_task]
+    background_tasks: list[asyncio.Task[None]] = [cleanup_task, disk_watch_task]
     if settings.run_background_workers:
         background_tasks.append(asyncio.create_task(dispatcher.run()))
         background_tasks.append(asyncio.create_task(drive_watcher.run()))
@@ -122,6 +154,24 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await http_client.aclose()
     await engine.dispose()
     logger.info("spindle.shutdown")
+
+
+def _resolve_secret_key(settings: Settings) -> bytes:
+    """The key `AuthService` signs session cookies with (phase-09-hardening.md
+    task 1): `SPINDLE_SECRET_KEY` if set, else a key generated on first boot
+    and persisted at `data_dir/secret.key` (mode 0600) so sessions survive a
+    restart instead of logging everyone out."""
+    if settings.secret_key is not None:
+        return settings.secret_key.get_secret_value().encode()
+
+    key_path = settings.data_dir / "secret.key"
+    if key_path.exists():
+        return key_path.read_bytes()
+
+    key = secrets.token_bytes(32)
+    key_path.write_bytes(key)
+    key_path.chmod(_SECRET_KEY_FILE_MODE)
+    return key
 
 
 def _build_adapters_and_services(
@@ -225,6 +275,43 @@ def _register_exception_handlers(app: FastAPI) -> None:
         )
 
 
+_AUTH_EXEMPT_PREFIXES = ("/api/v1/system/health", "/api/v1/auth/")
+
+
+async def _enforce_auth(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    """Protects `/api/v1/*` except `/system/health` and `/auth/*` (task 1) --
+    login/setup/logout must stay reachable while logged out, and the Docker
+    healthcheck must never depend on a session. SSE uses the same cookie as
+    every other request; there's no separate exemption for it."""
+    settings: Settings = request.app.state.settings
+    if not settings.auth_enabled or not request.url.path.startswith("/api/v1/"):
+        return await call_next(request)
+    if request.url.path.startswith(_AUTH_EXEMPT_PREFIXES):
+        return await call_next(request)
+
+    auth: AuthService = request.app.state.auth
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    if token is None or not auth.verify_session_cookie(token):
+        return JSONResponse(
+            status_code=401,
+            content={"error": "unauthorized", "message": "Authentication required.", "detail": {}},
+        )
+
+    response = await call_next(request)
+    response.set_cookie(
+        SESSION_COOKIE_NAME,
+        auth.create_session_cookie(),
+        max_age=SESSION_TTL_SECONDS,
+        httponly=True,
+        samesite="lax",
+        secure=request.url.scheme == "https",
+        path="/",
+    )
+    return response
+
+
 def _mount_frontend(app: FastAPI) -> None:
     if not WEB_DIST_DIR.is_dir():
         return
@@ -251,8 +338,13 @@ def create_app() -> FastAPI:
     app.state.started_at = time.monotonic()
 
     _register_exception_handlers(app)
+    app.middleware("http")(_enforce_auth)
 
     if settings.dev_mode:
+        # Added after the auth middleware so CORS ends up outermost (Starlette
+        # wraps middleware in reverse add-order) -- it must see and handle a
+        # preflight OPTIONS request, and stamp CORS headers on a 401, before
+        # the auth check ever runs.
         app.add_middleware(
             CORSMiddleware,
             allow_origins=["http://localhost:5173"],
@@ -262,6 +354,15 @@ def create_app() -> FastAPI:
         )
 
     app.include_router(api_router, prefix="/api/v1")
+
+    @app.get("/metrics", include_in_schema=False)
+    async def metrics_endpoint(request: Request) -> PlainTextResponse:
+        if not request.app.state.settings.metrics_enabled:
+            raise NotFoundError("Metrics are disabled.")
+        async with request.app.state.session_factory() as session:
+            text = await render_prometheus_metrics(session)
+        return PlainTextResponse(text, media_type="text/plain; version=0.0.4")
+
     _mount_frontend(app)
 
     return app

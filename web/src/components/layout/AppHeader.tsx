@@ -1,6 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { HardDrive, Menu, Moon, Settings, Sun, WifiOff } from "lucide-react";
+import { HardDrive, LogOut, Menu, Moon, Settings, Sun, WifiOff } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -68,6 +68,31 @@ function ThemeToggle() {
   );
 }
 
+function LogoutButton() {
+  const queryClient = useQueryClient();
+  const { data } = useQuery({ queryKey: queryKeys.auth.me(), queryFn: api.auth.me });
+  if (!data?.auth_enabled) return null;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Sign out"
+          onClick={async () => {
+            await api.auth.logout();
+            await queryClient.invalidateQueries({ queryKey: queryKeys.auth.me() });
+          }}
+        >
+          <LogOut className="size-4" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>Sign out</TooltipContent>
+    </Tooltip>
+  );
+}
+
 export function AppHeader() {
   const title = useCurrentPageTitle();
   const { setMobileOpen } = useSidebar();
@@ -88,6 +113,7 @@ export function AppHeader() {
         <DiskSpacePill />
         <ConnectionPill />
         <ThemeToggle />
+        <LogoutButton />
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="ghost" size="icon-sm" aria-label="Settings" asChild>

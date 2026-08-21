@@ -7,12 +7,22 @@ services:
     environment:
       PUID: "1000"
       PGID: "1000"
+      TZ: "Etc/UTC"
       SPINDLE_LOG_LEVEL: INFO
+      # SPINDLE_AUTH_ENABLED: "true"
+      # SPINDLE_TMDB_API_KEY: ""
+      # SPINDLE_OPENSUBTITLES_API_KEY: ""
+      # SPINDLE_JELLYFIN_URL: "http://jellyfin:8096"
+      # SPINDLE_JELLYFIN_TOKEN: ""
     volumes:
       - ./data:/data
       - ./work:/work
       - ./library:/library
+      # udev metadata for reliable drive model/vendor detection; read-only.
+      - /run/udev:/run/udev:ro
     devices:
+      # One `--device` per optical drive. A second drive is just a second line:
+      # - "/dev/sr1:/dev/sr1"
       - "/dev/sr0:/dev/sr0"
     group_add:
       - cdrom

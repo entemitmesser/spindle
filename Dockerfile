@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     udev \
     gosu \
     curl \
+    tzdata \
     && rm -rf /var/lib/apt/lists/* \
     && (getent group cdrom || groupadd cdrom)
 

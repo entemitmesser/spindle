@@ -1,6 +1,8 @@
 import { Outlet, createRootRoute } from "@tanstack/react-router";
 
 import { AppShell } from "@/components/layout/AppShell";
+import { AuthGate } from "@/providers/AuthGate";
+import { EventProvider } from "@/providers/EventProvider";
 
 export const Route = createRootRoute({
   component: RootComponent,
@@ -8,8 +10,12 @@ export const Route = createRootRoute({
 
 function RootComponent() {
   return (
-    <AppShell>
-      <Outlet />
-    </AppShell>
+    <AuthGate>
+      <EventProvider>
+        <AppShell>
+          <Outlet />
+        </AppShell>
+      </EventProvider>
+    </AuthGate>
   );
 }

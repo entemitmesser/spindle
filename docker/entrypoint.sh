@@ -3,6 +3,12 @@ set -e
 
 PUID="${PUID:-1000}"
 PGID="${PGID:-1000}"
+TZ="${TZ:-Etc/UTC}"
+
+if [ -f "/usr/share/zoneinfo/$TZ" ]; then
+    ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime
+    echo "$TZ" > /etc/timezone
+fi
 
 if ! getent group "$PGID" >/dev/null 2>&1; then
     groupadd -g "$PGID" spindle

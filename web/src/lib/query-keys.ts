@@ -3,6 +3,9 @@ import type { QueryKey } from "@tanstack/react-query";
 import type { EventType, SpindleEvent } from "@/lib/sse";
 
 export const queryKeys = {
+  auth: {
+    me: () => ["auth", "me"] as const,
+  },
   system: {
     health: () => ["system", "health"] as const,
     info: () => ["system", "info"] as const,

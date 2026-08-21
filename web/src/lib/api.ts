@@ -32,6 +32,7 @@ export type EventOut = components["schemas"]["EventOut"];
 export type DiskUsage = components["schemas"]["DiskUsage"];
 export type BackendStatus = components["schemas"]["BackendStatus"];
 export type SystemWarning = components["schemas"]["SystemWarning"];
+export type AuthStatus = components["schemas"]["AuthStatus"];
 
 // `Page_JobSummary_`/`Page_EventOut_` are openapi-typescript's mangled names
 // for FastAPI's generic `Page[JobSummary]`/`Page[EventOut]` — this local
@@ -115,6 +116,16 @@ type ListEventsQuery = NonNullable<operations["list_events"]["parameters"]["quer
 export const api = {
   health: () => request<HealthResponse>("/system/health"),
   system: () => request<SystemInfo>("/system"),
+  backupUrl: "/api/v1/system/backup",
+
+  auth: {
+    me: () => request<AuthStatus>("/auth/me"),
+    setup: (password: string) =>
+      request<AuthStatus>("/auth/setup", { method: "POST", body: { password } }),
+    login: (password: string) =>
+      request<AuthStatus>("/auth/login", { method: "POST", body: { password } }),
+    logout: () => request<AuthStatus>("/auth/logout", { method: "POST" }),
+  },
 
   drives: {
     list: () => request<DrivesResponse>("/drives"),

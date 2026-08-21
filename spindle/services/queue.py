@@ -18,8 +18,9 @@ import time
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 
+import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlmodel import col
@@ -49,6 +50,11 @@ _RETRY_BACKOFF_BASE_SECONDS: Final = 30
 # gated per-drive, not by count; ORGANIZE has no documented limit.
 _NETWORK_CONCURRENCY: Final = 4
 _UNLIMITED: Final = 1_000_000
+
+# A module-level constant (rather than a literal `* 60` inline) so tests can
+# monkeypatch it down and exercise the watchdog in milliseconds instead of
+# real minutes.
+_SECONDS_PER_MINUTE: Final = 60
 
 
 def _capacity_for_config(config: RuntimeConfig) -> dict[TaskKind, int]:
@@ -363,14 +369,8 @@ async def run_stage(
             return
 
         start = time.monotonic()
-        try:
-            result = await stage.run(ctx)
-        except Exception as exc:  # noqa: BLE001 -- any stage failure becomes a failed task
-            logger.exception("stage.run_failed")
-            with contextlib.suppress(Exception):
-                await stage.cleanup(ctx)
-            result = StageResult(status=TaskStatus.FAILED, message=str(exc) or type(exc).__name__)
-
+        with structlog.contextvars.bound_contextvars(job_id=job_id, task_kind=task.kind.value):
+            result = await _run_stage_with_watchdog(stage, ctx, config, logger)
         duration_seconds = int(time.monotonic() - start)
         task.finished_at = utc_now()
         task.message = result.message
@@ -422,6 +422,89 @@ async def run_stage(
                 },
             )
         )
+
+
+async def _run_stage_with_watchdog(
+    stage: Stage,
+    ctx: JobContext,
+    config: RuntimeConfig,
+    logger: structlog.stdlib.BoundLogger,
+) -> StageResult:
+    """Runs `stage.run(ctx)` racing a stall watchdog (phase-09-hardening.md
+    task 2): `ctx.emit` is wrapped to track the last `task.progress` event,
+    and a task stuck past `stall_timeout_minutes` since its last one is
+    cancelled and reported as failed, same as any other stage failure --
+    based on progress events, not wall clock, so a slow-but-moving UHD
+    transcode is never a false positive.
+
+    A cancellation of *this* coroutine's own task (`Dispatcher.stop()` /
+    `cancel_task()`) is a different thing entirely and must not be
+    swallowed here: it's re-raised after making sure the stage's subprocess
+    is actually torn down (`stage.cleanup`), so the task is left `running`
+    in the DB for `recover_orphaned_tasks` to pick up on the next boot.
+    """
+    stall_timeout_seconds = config.behaviour.stall_timeout_minutes * _SECONDS_PER_MINUTE
+    last_progress = time.monotonic()
+    original_emit = ctx.emit
+
+    async def emit_and_track(event_in: EventIn) -> None:
+        nonlocal last_progress
+        if event_in.type == "task.progress":
+            last_progress = time.monotonic()
+        await original_emit(event_in)
+
+    ctx.emit = emit_and_track
+
+    async def _watch_for_stall() -> None:
+        while True:
+            remaining = stall_timeout_seconds - (time.monotonic() - last_progress)
+            if remaining <= 0:
+                return
+            await asyncio.sleep(min(remaining, 30.0))
+
+    stage_future: asyncio.Task[StageResult] = asyncio.ensure_future(stage.run(ctx))
+    watchdog_future: asyncio.Task[None] | None = (
+        asyncio.ensure_future(_watch_for_stall()) if stall_timeout_seconds > 0 else None
+    )
+    waitables: set[asyncio.Task[Any]] = {stage_future}
+    if watchdog_future is not None:
+        waitables.add(watchdog_future)
+
+    try:
+        done, _pending = await asyncio.wait(waitables, return_when=asyncio.FIRST_COMPLETED)
+        if stage_future in done:
+            return stage_future.result()
+
+        stage_future.cancel()
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await stage_future
+        minutes = config.behaviour.stall_timeout_minutes
+        logger.warning("stage.stalled", stall_timeout_minutes=minutes)
+        with contextlib.suppress(Exception):
+            await stage.cleanup(ctx)
+        return StageResult(
+            status=TaskStatus.FAILED,
+            message=f"No progress for {minutes} minutes — the drive may have stalled.",
+        )
+    except asyncio.CancelledError:
+        stage_future.cancel()
+        if watchdog_future is not None:
+            watchdog_future.cancel()
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await stage_future
+        with contextlib.suppress(Exception):
+            await stage.cleanup(ctx)
+        raise
+    except Exception as exc:  # noqa: BLE001 -- any stage failure becomes a failed task
+        logger.exception("stage.run_failed")
+        with contextlib.suppress(Exception):
+            await stage.cleanup(ctx)
+        return StageResult(status=TaskStatus.FAILED, message=str(exc) or type(exc).__name__)
+    finally:
+        if watchdog_future is not None and not watchdog_future.done():
+            watchdog_future.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await watchdog_future
 
 
 async def _persist_progress(
