@@ -46,9 +46,24 @@ const EVENT_TYPES: EventType[] = [
   "system.warning",
 ];
 
+export interface SubscribeOptions {
+  /** Fired when the connection (re)opens. */
+  onOpen?: () => void;
+  /** Fired on a connection error. The native EventSource retries on its own,
+   * but callers that want custom backoff should close() via the returned
+   * unsubscribe and open a fresh subscription themselves. */
+  onError?: () => void;
+}
+
 /** Subscribes to every known event type and returns an unsubscribe function. */
-export function subscribeToEvents(onEvent: (event: SpindleEvent) => void): () => void {
+export function subscribeToEvents(
+  onEvent: (event: SpindleEvent) => void,
+  options: SubscribeOptions = {},
+): () => void {
   const source = new EventSource("/api/v1/events/stream");
+
+  if (options.onOpen) source.addEventListener("open", options.onOpen);
+  if (options.onError) source.addEventListener("error", options.onError);
 
   const handlers = EVENT_TYPES.map((type) => {
     const handler = (message: MessageEvent<string>) => {

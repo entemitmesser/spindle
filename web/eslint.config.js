@@ -23,7 +23,10 @@ export default defineConfig([
     },
   },
   {
-    files: ["src/routes/**/*.tsx", "src/components/ui/**/*.tsx"],
+    // Route modules (TanStack Router) and shadcn ui primitives legitimately
+    // co-export a hook/variant helper alongside their component; so do the
+    // app's context providers (`useTheme` beside `ThemeProvider`, etc).
+    files: ["src/routes/**/*.tsx", "src/components/ui/**/*.tsx", "src/providers/**/*.tsx"],
     rules: {
       "react-refresh/only-export-components": "off",
     },

@@ -15,6 +15,16 @@
   --primary-foreground: oklch(0.99 0 0);
   --radius: 0.75rem;
 
+  /* shadcn primitives need these; kept neutral per ui-design.md's "one accent" rule —
+     destructive borrows the status-danger hue instead of introducing a new one. */
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.01 260);
+  --secondary: oklch(0.96 0.005 260);
+  --secondary-foreground: oklch(0.18 0.01 260);
+  --accent: oklch(0.96 0.005 260);
+  --accent-foreground: oklch(0.18 0.01 260);
+  --destructive: oklch(0.55 0.19 22);
+
   --status-idle: oklch(0.55 0.01 265);
   --status-active: oklch(0.6 0.14 235);
   --status-success: oklch(0.6 0.15 155);
@@ -31,6 +41,14 @@
   --border: oklch(0.28 0.01 265);
   --primary: oklch(0.68 0.15 268);
   --primary-foreground: oklch(0.16 0.008 265);
+
+  --popover: oklch(0.2 0.009 265);
+  --popover-foreground: oklch(0.96 0.003 260);
+  --secondary: oklch(0.24 0.01 265);
+  --secondary-foreground: oklch(0.96 0.003 260);
+  --accent: oklch(0.26 0.01 265);
+  --accent-foreground: oklch(0.96 0.003 260);
+  --destructive: oklch(0.65 0.19 22);
 
   --status-idle: oklch(0.6 0.01 265);
   --status-active: oklch(0.72 0.14 235);
@@ -51,6 +69,15 @@
   --color-ring: var(--primary);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: oklch(0.99 0 0);
 
   --color-status-idle: var(--status-idle);
   --color-status-active: var(--status-active);
@@ -76,5 +103,35 @@
     @apply bg-background text-foreground font-sans;
     font-feature-settings: "cv05", "ss01";
     font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  /* The active StageProgress segment (ui-design.md §5): a slow 2s shimmer,
+     nothing else animates. */
+  .stage-segment-active {
+    background-image: linear-gradient(
+      110deg,
+      transparent 35%,
+      color-mix(in oklch, white 30%, transparent) 50%,
+      transparent 65%
+    );
+    background-size: 200% 100%;
+    animation: stage-shimmer 2s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .stage-segment-active {
+      animation: none;
+    }
+  }
+}
+
+@keyframes stage-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
   }
 }

@@ -53,11 +53,10 @@ export const INVALIDATIONS: Record<EventType, (event: SpindleEvent) => QueryKey[
     ...(event.job_id !== null ? [queryKeys.jobs.detail(event.job_id)] : []),
     queryKeys.jobs.list(),
   ],
-  "task.progress": (event) => [
-    ...(event.job_id !== null ? [queryKeys.jobs.detail(event.job_id)] : []),
-    queryKeys.jobs.list(),
-    queryKeys.queue.list(),
-  ],
+  // Progress ticks never invalidate — they'd hammer the API. `useJobProgress`
+  // (providers/EventProvider.tsx) feeds progress bars from local state instead;
+  // this event only reaches components through that side channel.
+  "task.progress": () => [],
   "task.succeeded": (event) => [
     ...(event.job_id !== null ? [queryKeys.jobs.detail(event.job_id)] : []),
     queryKeys.jobs.list(),

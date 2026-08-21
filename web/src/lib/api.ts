@@ -9,8 +9,15 @@ export type JobPatch = components["schemas"]["JobPatch"];
 export type JobRetryRequest = components["schemas"]["JobRetryRequest"];
 export type JobStatus = components["schemas"]["JobStatus"];
 export type TaskKind = components["schemas"]["TaskKind"];
+export type TaskStatus = components["schemas"]["TaskStatus"];
+export type TaskOut = components["schemas"]["TaskOut"];
 export type MediaKind = components["schemas"]["MediaKind"];
+export type MediaFileOut = components["schemas"]["MediaFileOut"];
+export type MetadataCandidate = components["schemas"]["MetadataCandidate"];
+export type DiscOut = components["schemas"]["DiscOut"];
+export type DiscType = components["schemas"]["DiscType"];
 export type DriveOut = components["schemas"]["DriveOut"];
+export type DriveStatus = components["schemas"]["DriveStatus"];
 export type DrivePatch = components["schemas"]["DrivePatch"];
 export type DrivesResponse = components["schemas"]["DrivesResponse"];
 export type QueueResponse = components["schemas"]["QueueResponse"];
@@ -19,8 +26,12 @@ export type PresetOut = components["schemas"]["PresetOut"];
 export type SettingsTestResult = components["schemas"]["SettingsTestResult"];
 export type SettingsTestTarget = "tmdb" | "opensubtitles" | "jellyfin" | "notify";
 export type MetadataSearchResponse = components["schemas"]["MetadataSearchResponse"];
+export type MetadataSearchResult = components["schemas"]["MetadataSearchResult"];
 export type MetadataDetail = components["schemas"]["MetadataDetail"];
 export type EventOut = components["schemas"]["EventOut"];
+export type DiskUsage = components["schemas"]["DiskUsage"];
+export type BackendStatus = components["schemas"]["BackendStatus"];
+export type SystemWarning = components["schemas"]["SystemWarning"];
 
 // `Page_JobSummary_`/`Page_EventOut_` are openapi-typescript's mangled names
 // for FastAPI's generic `Page[JobSummary]`/`Page[EventOut]` — this local
