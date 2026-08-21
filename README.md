@@ -22,7 +22,7 @@ Requires Docker and at least one optical drive passed through to the host.
 
 ```bash
 mkdir spindle && cd spindle
-curl -O https://raw.githubusercontent.com/<you>/spindle/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/entemitmesser/spindle/main/docker-compose.yml
 docker compose up -d
 ```
 
@@ -31,7 +31,7 @@ Or write the compose file yourself — this is the complete one:
 ```yaml
 services:
   spindle:
-    image: ghcr.io/<you>/spindle:latest
+    image: ghcr.io/entemitmesser/spindle:latest
     ports:
       - "8478:8478"
     environment:
