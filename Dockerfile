@@ -29,6 +29,7 @@ COPY pyproject.toml uv.lock README.md ./
 RUN uv sync --frozen --no-dev --no-install-project
 
 COPY spindle/ ./spindle/
+COPY alembic.ini ./
 RUN uv sync --frozen --no-dev
 
 COPY --from=web /web/dist ./web/dist
