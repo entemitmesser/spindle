@@ -38,4 +38,9 @@ usermod -a -G cdrom "$SPINDLE_USER" 2>/dev/null || true
 mkdir -p "$SPINDLE_DATA_DIR" "$SPINDLE_WORK_DIR"
 chown -R "$PUID:$PGID" "$SPINDLE_DATA_DIR" "$SPINDLE_WORK_DIR"
 
-exec gosu "$PUID:$PGID" "$@"
+# Must exec by username, not "$PUID:$PGID" -- gosu only performs the NSS
+# supplementary-group lookup (initgroups) when given a name. A raw numeric
+# uid:gid pair bypasses that lookup, silently dropping every group joined
+# above (cdrom, disc-$dev_gid) and reintroducing the permission-denied error
+# this loop exists to avoid.
+exec gosu "$SPINDLE_USER" "$@"
