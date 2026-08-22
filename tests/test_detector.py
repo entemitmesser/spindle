@@ -266,6 +266,63 @@ class TestDriveLifecycle:
             disc = (await session.execute(select(Disc))).scalar_one()
         assert disc.disc_type is not None
 
+
+class TestRunLoopResilience:
+    async def test_a_failing_poll_does_not_kill_the_watcher(
+        self,
+        fake_adapter: _FakeAdapter,
+        session_factory: async_sessionmaker[AsyncSession],
+        event_bus: EventBus,
+        config_store: ConfigStore,
+        fake_tmdb: _FakeTmdb,
+    ) -> None:
+        """Regression test: `run()`'s loop used to have no try/except around
+        `poll_once()`, so any unexpected exception (e.g. a permission error
+        surfacing from the adapter) silently killed disc detection for the
+        rest of the process's life -- with nothing in the logs, since the
+        task's exception is only surfaced by asyncio once the task object is
+        garbage collected, and `main.py` holds a reference to it until
+        shutdown. It must instead log, emit `system.warning`, and keep
+        polling on the next interval."""
+        watcher = DriveWatcher(
+            fake_adapter,  # type: ignore[arg-type]
+            session_factory,
+            event_bus,
+            config_store,
+            fake_tmdb,  # type: ignore[arg-type]
+            poll_interval=0.05,
+            debounce_seconds=0.05,
+        )
+
+        call_count = 0
+        real_poll_once = watcher.poll_once
+
+        async def flaky_poll_once() -> None:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise RuntimeError("simulated adapter failure")
+            await real_poll_once()
+
+        watcher.poll_once = flaky_poll_once  # type: ignore[method-assign]
+
+        task = asyncio.create_task(watcher.run())
+        try:
+            await asyncio.sleep(0.3)
+        finally:
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+
+        assert call_count >= 2  # survived the first failure and kept polling
+
+        async with session_factory() as session:
+            result = await session.execute(select(Event).where(Event.type == "system.warning"))
+            warnings = list(result.scalars().all())
+        assert any(w.data.get("code") == "drive_poll_failed" for w in warnings)
+
+
+class TestAudioCd:
     async def test_audio_cd_insert_parks_needs_review_without_calling_tmdb(
         self,
         watcher: DriveWatcher,

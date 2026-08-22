@@ -3,6 +3,9 @@ from __future__ import annotations
 import httpx
 from fastapi import FastAPI
 
+from spindle.config import ConfigStore
+from spindle.services.events import EventBus, EventIn
+
 
 async def test_health_returns_ok(app: FastAPI) -> None:
     transport = httpx.ASGITransport(app=app)
@@ -42,6 +45,40 @@ async def test_system_info_reports_real_backend_status(client: httpx.AsyncClient
     for status in body["backends"].values():
         assert isinstance(status["available"], bool)
     assert {"work", "data"} <= {entry["label"] for entry in body["disk"]}
+
+
+async def test_system_info_drops_stale_opensubtitles_warning_once_disabled(
+    client: httpx.AsyncClient,
+    event_bus: EventBus,
+    config_store: ConfigStore,
+) -> None:
+    """`opensubtitles_not_configured` is only ever emitted once, at startup
+    (`run_startup_checks`). If the user later disables subtitles in settings,
+    that past event must not keep haunting the dashboard forever — `GET
+    /system` should re-validate it against the *current* config on every
+    call, same as it already does for disk space."""
+    await event_bus.emit(
+        EventIn(
+            type="system.warning",
+            data={
+                "code": "opensubtitles_not_configured",
+                "message": "Subtitles are enabled with OpenSubtitles as the "
+                "provider, but no API key is configured.",
+            },
+        )
+    )
+
+    response = await client.get("/api/v1/system")
+    assert response.status_code == 200
+    codes = {w["code"] for w in response.json()["warnings"]}
+    assert "opensubtitles_not_configured" in codes
+
+    await config_store.update({"subtitles": {"enabled": False}})
+
+    response = await client.get("/api/v1/system")
+    assert response.status_code == 200
+    codes = {w["code"] for w in response.json()["warnings"]}
+    assert "opensubtitles_not_configured" not in codes
 
 
 async def test_unknown_api_route_returns_json_404(app: FastAPI) -> None:

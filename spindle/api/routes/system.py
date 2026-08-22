@@ -79,10 +79,31 @@ async def system_info(request: Request) -> SystemInfo:
                 .order_by(col(Event.id).desc())
                 .limit(_RECENT_WARNINGS_LIMIT)
             )
-            for row in result.scalars().all():
-                code = str(row.data.get("code", "unknown"))
-                message = str(row.data.get("message", ""))
-                warnings.append(SystemWarning(code=code, message=message))
+            rows = result.scalars().all()
+
+        # These two codes are config-gated: the condition that raised them at
+        # startup can be resolved later purely by a settings change, with no
+        # new event ever emitted (startup checks only run once, at boot -- see
+        # architecture.md's Ops section). Re-validate against the *current*
+        # runtime config so toggling subtitles/notifications off makes the
+        # stale warning disappear instead of persisting until the next restart.
+        runtime_config = await state.config_store.get() if hasattr(state, "config_store") else None
+        for row in rows:
+            code = str(row.data.get("code", "unknown"))
+            message = str(row.data.get("message", ""))
+            if runtime_config is not None:
+                if code == "opensubtitles_not_configured" and not (
+                    runtime_config.subtitles.enabled
+                    and runtime_config.subtitles.external_provider == "opensubtitles"
+                    and not state.opensubtitles.is_configured
+                ):
+                    continue
+                if code == "notifications_not_configured" and not (
+                    runtime_config.notifications.enabled
+                    and not runtime_config.notifications.webhook_url
+                ):
+                    continue
+            warnings.append(SystemWarning(code=code, message=message))
 
     return SystemInfo(
         version=__version__,

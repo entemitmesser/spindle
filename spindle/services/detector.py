@@ -78,7 +78,19 @@ class DriveWatcher:
         self._start_udev_observer()
         try:
             while True:
-                await self.poll_once()
+                try:
+                    await self.poll_once()
+                except Exception:  # noqa: BLE001 -- one bad poll must never kill the watcher
+                    logger.exception("detector.poll_failed")
+                    await self._event_bus.emit(
+                        EventIn(
+                            type="system.warning",
+                            data={
+                                "code": "drive_poll_failed",
+                                "message": "Drive detection poll failed; will retry.",
+                            },
+                        )
+                    )
                 with contextlib.suppress(TimeoutError):
                     await asyncio.wait_for(self._wake.wait(), timeout=self._poll_interval)
                 self._wake.clear()

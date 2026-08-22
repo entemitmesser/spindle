@@ -19,6 +19,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
+import structlog
+
 from spindle.adapters._discfs import (
     SECTOR_SIZE,
     DiscFilesystem,
@@ -26,6 +28,8 @@ from spindle.adapters._discfs import (
     open_disc_filesystem,
 )
 from spindle.errors import AdapterError
+
+logger = structlog.get_logger(__name__)
 
 _SYS_BLOCK = Path("/sys/block")
 
@@ -114,14 +118,22 @@ class OpticalAdapter:
         with self._open(dev) as fd:
             if fd is None:
                 return TrayStatus.UNKNOWN
-            code = self._ioctl(fd, _CDROM_DRIVE_STATUS, _CDSL_CURRENT)
+            try:
+                code = self._ioctl(fd, _CDROM_DRIVE_STATUS, _CDSL_CURRENT)
+            except OSError as exc:
+                logger.warning("optical.ioctl_failed", dev=dev, error=str(exc))
+                return TrayStatus.UNKNOWN
             return _DRIVE_STATUS_MAP.get(code, TrayStatus.UNKNOWN)
 
     def disc_status(self, dev: str) -> DiscStatus:
         with self._open(dev) as fd:
             if fd is None:
                 return DiscStatus.UNKNOWN
-            code = self._ioctl(fd, _CDROM_DISC_STATUS, _CDSL_CURRENT)
+            try:
+                code = self._ioctl(fd, _CDROM_DISC_STATUS, _CDSL_CURRENT)
+            except OSError as exc:
+                logger.warning("optical.ioctl_failed", dev=dev, error=str(exc))
+                return DiscStatus.UNKNOWN
             return _DISC_STATUS_MAP.get(code, DiscStatus.UNKNOWN)
 
     def disc_size_bytes(self, dev: str) -> int | None:
@@ -176,29 +188,39 @@ class OpticalAdapter:
         with self._open(dev) as fd:
             if fd is None:
                 raise AdapterError(f"Cannot open {dev} to eject")
-            self._ioctl(fd, _CDROMEJECT, 0)
+            try:
+                self._ioctl(fd, _CDROMEJECT, 0)
+            except OSError as exc:
+                raise AdapterError(f"Cannot eject {dev}: {exc}") from exc
 
     def close_tray(self, dev: str) -> None:
         with self._open(dev) as fd:
             if fd is None:
                 raise AdapterError(f"Cannot open {dev} to close tray")
-            self._ioctl(fd, _CDROMCLOSETRAY, 0)
+            try:
+                self._ioctl(fd, _CDROMCLOSETRAY, 0)
+            except OSError as exc:
+                raise AdapterError(f"Cannot close tray {dev}: {exc}") from exc
 
     # -- internals ---------------------------------------------------------
 
     @contextlib.contextmanager
     def _open(self, dev: str) -> Iterator[int | None]:
-        fd: int | None = None
         try:
             # O_NONBLOCK: an open() on an empty/spinning-up drive otherwise
             # blocks until media is present, which would hang the caller.
             fd = os.open(dev, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0))
-            yield fd
-        except OSError:
+        except OSError as exc:
+            # Most commonly a host/container GID mismatch on the device node
+            # (see docker/entrypoint.sh) — logged here since callers degrade
+            # this to a generic UNKNOWN status with no other trace of why.
+            logger.warning("optical.open_failed", dev=dev, error=str(exc), errno=exc.errno)
             yield None
+            return
+        try:
+            yield fd
         finally:
-            if fd is not None:
-                os.close(fd)
+            os.close(fd)
 
     def _open_filesystem(self, dev: str) -> DiscFilesystem | None:
         with self._open(dev) as fd:
