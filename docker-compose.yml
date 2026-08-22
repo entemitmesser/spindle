@@ -1,7 +1,6 @@
 services:
   spindle:
-    build: .
-    image: spindle:latest
+    image: ghcr.io/entemitmesser/spindle:latest
     ports:
       - "8478:8478"
     environment:
