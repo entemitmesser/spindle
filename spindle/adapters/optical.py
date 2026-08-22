@@ -147,21 +147,21 @@ class OpticalAdapter:
         return None
 
     def read_volume_info(self, dev: str) -> VolumeInfo:
-        fs = self._open_filesystem(dev)
-        return VolumeInfo(volume_id=fs.volume_id if fs is not None else None)
+        with self._open_filesystem(dev) as fs:
+            return VolumeInfo(volume_id=fs.volume_id if fs is not None else None)
 
     def list_root_entries(self, dev: str) -> list[str]:
-        fs = self._open_filesystem(dev)
-        if fs is None:
-            return []
-        return [e.name for e in fs.list_dir([])]
+        with self._open_filesystem(dev) as fs:
+            if fs is None:
+                return []
+            return [e.name for e in fs.list_dir([])]
 
     def list_entries(self, dev: str, path: Sequence[str]) -> list[DiscFsEntry]:
         """Mount-free listing of a nested directory (e.g. `("BDMV", "PLAYLIST")`)."""
-        fs = self._open_filesystem(dev)
-        if fs is None:
-            return []
-        return [fs.stat(e) for e in fs.list_dir(path)]
+        with self._open_filesystem(dev) as fs:
+            if fs is None:
+                return []
+            return [fs.stat(e) for e in fs.list_dir(path)]
 
     def read_dvd_title_info(
         self,
@@ -222,16 +222,23 @@ class OpticalAdapter:
         finally:
             os.close(fd)
 
-    def _open_filesystem(self, dev: str) -> DiscFilesystem | None:
+    @contextlib.contextmanager
+    def _open_filesystem(self, dev: str) -> Iterator[DiscFilesystem | None]:
+        # `list_dir`/`stat` on the returned filesystem read lazily via the
+        # `read` closure below, so the fd must stay open for as long as the
+        # caller holds the filesystem object -- yielding it from inside this
+        # `with` (rather than returning it after `_open`'s `with` has already
+        # closed the fd) is what keeps that true.
         with self._open(dev) as fd:
             if fd is None:
-                return None
+                yield None
+                return
 
             def read(lba: int) -> bytes:
                 assert fd is not None  # noqa: S101 -- narrows the enclosing Optional for mypy
                 return os.pread(fd, SECTOR_SIZE, lba * SECTOR_SIZE)
 
-            return open_disc_filesystem(read)
+            yield open_disc_filesystem(read)
 
     @staticmethod
     def _ioctl(fd: int, request: int, arg: int) -> int:
