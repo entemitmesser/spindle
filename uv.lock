@@ -1357,7 +1357,7 @@ requires-dist = [
     { name = "srt", specifier = ">=3.5.3" },
     { name = "structlog", specifier = ">=24.4" },
     { name = "typer", specifier = ">=0.13" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.52.4" },
 ]
 
 [package.metadata.requires-dev]
