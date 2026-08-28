@@ -19,7 +19,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@hookform/resolvers": "^5.9.1",
     "@tanstack/react-query": "^5.101.4",
-    "@tanstack/react-router": "^1.170.31",
+    "@tanstack/react-router": "^1.170.32",
     "@tanstack/react-virtual": "^3.14.10",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
