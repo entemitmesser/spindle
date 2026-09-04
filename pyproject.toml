@@ -19,7 +19,7 @@ dependencies = [
   "pyudev>=0.24; sys_platform == 'linux'",
   "structlog>=24.4",
   "typer>=0.13",
-  "rapidfuzz>=3.10",
+  "rapidfuzz>=3.14.6",
   "srt>=3.5.3",
   "charset-normalizer>=3.5.1",
   "argon2-cffi>=23.1",
